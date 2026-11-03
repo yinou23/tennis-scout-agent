@@ -1,0 +1,13 @@
+# TSA Python dependencies, Week 6 Step 4.
+# Used by the GitHub Actions workflow, and by a fresh Mac venv.
+# Versions are not pinned here, on purpose, so a fresh install
+# gets compatible versions, and a pinned version that goes
+# stale does not break CI. The Mac venv already has working
+# versions, this file is for a clean install, not a replacement
+# for the Mac venv.
+fastapi
+langgraph
+psycopg[binary]
+mcp
+uvicorn
+pytest

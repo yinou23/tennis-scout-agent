@@ -1,0 +1,47 @@
+# TSA Python tests, Week 6 Step 4 CI gate.
+#
+# What this workflow does, and what it does NOT do, in plain terms:
+# - It runs on every push and every pull request, on GitHub servers,
+#   not on the developer Mac.
+# - It installs Python 3.12 and the packages in requirements.txt,
+#   then runs the eval cases validator, then runs pytest for all
+#   tests in tests/.
+# - DATABASE_URL is deliberately NOT set in CI. Tests that need
+#   a database are skipped in CI, by their own skipif, they do
+#   not fail, and they do not silently pass as if they ran.
+# - The full 100-case database eval, `python scripts/eval.py`,
+#   is NOT run in CI, because CI does not have the Sackmann
+#   database. That eval is a local pre-merge gate, run on the
+#   Mac with .env loaded, before merging. This workflow must
+#   never be described as having run the database eval.
+# - This workflow alone does not block a merge. To make it a
+#   real gate, enable branch protection in the GitHub repo
+#   settings, for the main branch, and require this workflow's
+#   test job to pass before merging. That step is done in the
+#   GitHub web UI, not in this file, and it is not done until
+#   the repo is pushed to GitHub, which is Week 8 scope, not
+#   Week 6. Until then, this file is a local, reviewable
+#   definition of the gate, verified locally by running the
+#   same commands it runs.
+name: TSA Python tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Validate eval cases file structure
+        run: python scripts/validate_eval_cases.py
+      - name: Run pytest
+        run: python -m pytest tests/ -v

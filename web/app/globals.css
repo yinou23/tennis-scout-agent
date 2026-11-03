@@ -1,0 +1,15 @@
+body { background: #f7f7f7; color: #111; font-family: system-ui, -apple-system, sans-serif; margin: 0; }
+main { margin: 0 auto; max-width: 820px; padding: 24px 16px 48px; }
+h1 { font-size: 28px; margin: 0 0 8px; }
+p.note { color: #555; line-height: 1.6; }
+label { display: block; font-weight: 600; margin: 16px 0 8px; }
+input[type="text"] { border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; padding: 10px; width: 100%; }
+button { background: #111; border: 0; border-radius: 6px; color: #fff; cursor: pointer; font-size: 16px; margin-top: 12px; padding: 10px 18px; }
+button:disabled { background: #888; cursor: default; }
+pre.report { background: #fff; border: 1px solid #ddd; border-radius: 6px; line-height: 1.7; padding: 16px; white-space: pre-wrap; word-break: break-word; }
+section.card { background: #fff; border: 1px solid #ddd; border-radius: 6px; margin-top: 16px; padding: 16px; }
+section.card h2 { font-size: 18px; margin: 0 0 8px; }
+section.card p, section.card li { line-height: 1.6; }
+.error { background: #fff1f1; border: 1px solid #e0a0a0; border-radius: 6px; margin-top: 16px; padding: 16px; }
+.health-ok { color: #0a6b2e; }
+.health-bad { color: #a00; }

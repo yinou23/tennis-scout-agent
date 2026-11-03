@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: tsa-db
+    environment:
+      POSTGRES_USER: tsa
+      POSTGRES_PASSWORD: tsa_dev_password
+      POSTGRES_DB: tsa
+    ports:
+      - "5432:5432"
+    volumes:
+      - tsa-pgdata:/var/lib/postgresql/data
+
+volumes:
+  tsa-pgdata:
