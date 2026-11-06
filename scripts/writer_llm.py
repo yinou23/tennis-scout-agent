@@ -76,6 +76,22 @@ LLM API, same as the Week 3 planner:
   then GEMINI_API_KEY, in .env, never hardcoded, never printed,
   never sent in chat.
 
+Week 9 Step 1 change, and only this change in this file:
+  The real API call now goes through scripts/llm_client.py,
+  which retries a transient error (429, 500, 502, 503, 504, or
+  a network error) once on the same model after 2 seconds,
+  then falls back to gemini-3.1-flash-lite, verified on
+  2026-11-05 / 2026-11-06 from the Google pricing page plus
+  independent rate-limit and observed-call sources, with the
+  same 2 attempt rule. See llm_client.py for the full
+  verification note and the May 7, 2027 earliest shutdown
+  date for the fallback. The result now records the model
+  that actually succeeded, so llm_model in the API response
+  shows the fallback when the fallback wrote the report.
+  No verifier rule, no writer rule, and no probability rule
+  changed. A failed call after all retries and the fallback
+  still returns an error, never a template fallback.
+
 Graph, build_llm_graph:
   planner, analyst, llm_writer, verifier_llm, writer_final, in
   that order. Planner and analyst are reused from Week 4 Step 3.
@@ -100,12 +116,9 @@ Usage, from the project root ~/TSA, after activating the venv:
   exits non-zero. It never falls back to the template report.
 """
 
-import json
 import os
 import re
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import TypedDict
 
@@ -197,33 +210,25 @@ def build_writer_prompt(templated_text, question):
     )
 
 
-def _default_api_caller(prompt, model):
-    """Call Gemini generateContent. Returns text, or raises."""
+def _default_api_caller_with_model(prompt, model):
+    """Call Gemini with retry and fallback. Return (text, model_used)."""
     api_key = os.environ.get("LLM_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("no_api_key")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-    body = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode("utf-8")
-    request = urllib.request.Request(
-        url,
-        data=body,
-        headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"llm_http_error:{exc.code}") from exc
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"llm_url_error:{type(exc).__name__}") from exc
-    try:
-        text = payload["candidates"][0]["content"]["parts"][0]["text"]
-    except (KeyError, IndexError, TypeError) as exc:
-        raise RuntimeError("llm_bad_response") from exc
-    if not isinstance(text, str) or not text.strip():
-        raise RuntimeError("llm_empty_response")
-    return text.strip()
+    from llm_client import call_gemini_text
+
+    return call_gemini_text(prompt, api_key, model=model)
+
+
+def _default_api_caller(prompt, model):
+    """Call Gemini generateContent. Returns text, or raises.
+
+    Kept for backward compatibility. New code uses
+    _default_api_caller_with_model, so the model that actually
+    succeeded is recorded, not just the model that was tried.
+    """
+    text, _model_used = _default_api_caller_with_model(prompt, model)
+    return text
 
 
 def write_report_with_llm(templated_report, question, api_caller=None, model=None):
@@ -241,14 +246,17 @@ def write_report_with_llm(templated_report, question, api_caller=None, model=Non
         return {"error": "no_templated_text"}
     chosen_model = model or os.environ.get("LLM_MODEL") or DEFAULT_MODEL
     prompt = build_writer_prompt(templated_text, question)
-    caller = api_caller if api_caller is not None else _default_api_caller
     try:
-        llm_text = caller(prompt, chosen_model)
+        if api_caller is not None:
+            llm_text = api_caller(prompt, chosen_model)
+            used_model = chosen_model
+        else:
+            llm_text, used_model = _default_api_caller_with_model(prompt, chosen_model)
     except Exception as exc:  # noqa: BLE001 - error type is reported, not hidden
         return {"error": f"llm_call_failed:{type(exc).__name__}:{exc}"}
     if not isinstance(llm_text, str) or not llm_text.strip():
         return {"error": "llm_empty_response"}
-    return {"text": llm_text.strip(), "model": chosen_model, "source": "llm"}
+    return {"text": llm_text.strip(), "model": used_model, "source": "llm"}
 
 
 def _required_values(templated_report):

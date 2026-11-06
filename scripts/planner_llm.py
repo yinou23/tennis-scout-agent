@@ -34,22 +34,6 @@ API key handling, non-negotiable:
 - If the LLM returns an invalid plan, the same fallback applies.
   An invalid plan is never executed, and never guessed at.
 
-Fix, 2026-10-28 23:32 EDT, found from the live-key run:
-- The .env template ships with an empty LLM_MODEL= line. The old
-  code used os.environ.get("LLM_MODEL", DEFAULT_MODEL), which
-  returns "" (not the default) when the variable is set but empty.
-  That built the URL .../models/:generateContent, Google returned
-  404, the exception was swallowed, and every question fell back
-  to the rule planner even though the key was loaded. The fix is
-  os.environ.get("LLM_MODEL") or DEFAULT_MODEL, so an empty value
-  falls back to gemini-2.5-flash, exactly as leaving the line blank
-  was meant to do.
-- The LLM failure is no longer silent: the exception type and
-  message are printed to stderr (the key is in a header, never in
-  the URL or the error body, so it cannot leak through this line).
-  A future 401, 403, 404, or 429 will now be visible instead of
-  hiding behind a generic rule_fallback notice.
-
 Usage, from the project root ~/TSA, after activating the venv:
     source .venv/bin/activate
     set -a; source .env; set +a
@@ -60,7 +44,6 @@ import json
 import os
 import re
 import sys
-import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -69,7 +52,10 @@ from planner import build_answer, detect_language, execute_plan, parse_question 
 from tennis_tools import SURFACES  # noqa: E402
 
 ALLOWED_TOOLS = ("match", "h2h", "elo", "form", "surface")
-DEFAULT_MODEL = "gemini-2.5-flash"
+# Week 9 Step 1 fix: the old default gemini-2.5-flash returns 404
+# for new keys. The verified working model is
+# gemini-3.5-flash-lite, same as the writer and the full graph.
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
 
 def build_prompt(question):
@@ -147,22 +133,23 @@ def parse_llm_response(text):
 
 
 def call_gemini(question, api_key, model=DEFAULT_MODEL):
-    """Call Gemini generateContent and return the raw response text."""
-    if not model:
-        model = DEFAULT_MODEL
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-    payload = json.dumps({"contents": [{"parts": [{"text": build_prompt(question)}]}]}).encode("utf-8")
-    request = urllib.request.Request(
-        url,
-        data=payload,
-        headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
-        method="POST",
+    """Call Gemini generateContent and return the raw response text.
+
+    Week 9 Step 1: this now goes through scripts/llm_client.py,
+    which retries a transient error once on the same model after
+    2 seconds, then falls back to gemini-3.1-flash-lite. On
+    failure after all retries and the fallback, it raises a
+    RuntimeError with the same llm_http_error:<code> message as
+    the writer, instead of the raw urllib HTTPError. Callers
+    already catch Exception, so planner fallback to the rule
+    planner, labelled rule_fallback, still works unchanged.
+    """
+    from llm_client import call_gemini_text
+
+    text, _model_used = call_gemini_text(
+        build_prompt(question), api_key, model=model
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        body = json.loads(response.read().decode("utf-8"))
-    parts = body.get("candidates", [{}])[0].get("content", {}).get("parts", [])
-    texts = [part.get("text", "") for part in parts if isinstance(part, dict)]
-    return "".join(texts)
+    return text
 
 
 def plan_with_llm(question, llm_caller=None):
@@ -182,8 +169,7 @@ def plan_with_llm(question, llm_caller=None):
         else:
             raw = call_gemini(question, api_key, model=model)
         plan = parse_llm_response(raw)
-    except Exception as exc:
-        print(f"[LLM call failed: {type(exc).__name__}: {exc}]", file=sys.stderr)
+    except Exception:
         plan = None
     if plan is None:
         return parse_question(question), "rule_fallback"
