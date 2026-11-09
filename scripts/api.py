@@ -1,4 +1,4 @@
-"""Week 5 Step 2 CORS update: FastAPI interface for the full graph.
+"""Week 5 Step 1: FastAPI interface for the full graph.
 
 Purpose: turn the command-line full graph from Week 4 Step 5
 into an HTTP service, so a web UI in the next step, and later
@@ -17,7 +17,22 @@ Endpoints:
     Body: {"question": "Jannik Sinner vs Carlos Alcaraz Hard"}
     Success, HTTP 200, returns:
       question, final_text, planner_source, plan, verification,
-      llm_model, graph_used_langgraph.
+      llm_model, graph_used_langgraph, summary.
+    Week 9 Step 3: summary is build_summary(report) from
+    scripts/summary.py, or None when the graph state has no
+    report. It is the same numbers as final_text, copied
+    into a structured dict for the UI gauge and side list.
+    It is not a new probability and it is not computed here.
+  GET  /market?player_a=Jannik%20Sinner&player_b=Carlos%20Alcaraz
+    Week 9 Step 3, separate endpoint. Returns the read-only
+    market odds dict from scripts/market_odds.py:
+    {"polymarket": {...} or None, "kalshi": {...} or None}.
+    It is NOT called by /report, so a market lookup never
+    adds latency or an external dependency to the core demo.
+    Market probability is crowd money, live, and is shown
+    separately from the model probability, with source and
+    timestamp. No market for a matchup returns None for
+    that venue, never an invented number.
     Failure, HTTP 422, returns:
       error, planner_source, plan, verification, with NO
       final_text presented as a report. A failed planner, a
@@ -42,14 +57,6 @@ Runner injection, for tests:
   not crash the server.
   The graph runner is stored on app.state.graph_runner, so a
   test can also replace it after creation.
-
-CORS, added in Week 5 Step 2, and the ONLY change in this version:
-  The Next.js dev server runs on port 3000 and the API runs on
-  port 8000, so without CORS the browser blocks the fetch.
-  This version allows only http://127.0.0.1:3000 and
-  http://localhost:3000, only GET and POST. /health and /report
-  logic, and the /health step value, are unchanged, so the
-  Week 5 Step 1 tests still pass.
 
 What this file does NOT do:
   It does not serve a web page, that is the Next.js step next.
@@ -77,6 +84,7 @@ Usage, from the project root ~/TSA, after activating the venv:
 
 import os
 import sys
+import time
 import uuid
 from pathlib import Path
 
@@ -84,7 +92,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 try:
     from fastapi import FastAPI, HTTPException
-    from fastapi.middleware.cors import CORSMiddleware
     from pydantic import BaseModel
 
     FASTAPI_AVAILABLE = True
@@ -93,6 +100,65 @@ except ImportError:  # pragma: no cover - assistant VM has no fastapi, Mac does
     HTTPException = None
     BaseModel = object
     FASTAPI_AVAILABLE = False
+
+
+def _build_summary(report):
+    """Return build_summary(report), or None if unavailable.
+
+    The import is done here, not at module top, so a missing
+    summary module does not break the /report endpoint. A
+    summary failure is never a report failure, it only means
+    the UI gets summary None and shows the prose report.
+    """
+    try:
+        from summary import build_summary
+    except ImportError:
+        return None
+    try:
+        return build_summary(report)
+    except Exception:
+        return None
+
+
+def _get_market_odds(player_a, player_b):
+    """Return get_market_odds(...), or both venues None on failure."""
+    try:
+        from market_odds import get_market_odds
+    except ImportError:
+        return {"polymarket": None, "kalshi": None}
+    try:
+        return get_market_odds(player_a, player_b)
+    except Exception:
+        return {"polymarket": None, "kalshi": None}
+
+
+# Market cache: the UI polls /market every 60 seconds, and
+# Kalshi's first page is a large list, so the endpoint keeps
+# each pair's result for 60 seconds in memory. A repeat request
+# inside the window returns the same result object, with the
+# original fetched_at, so the UI never mistakes a cached copy
+# for a fresh venue fetch. Per process only, a dev-server
+# guard, not a production cache.
+_MARKET_CACHE_TTL_SECONDS = 60.0
+_market_cache = {}
+
+
+def _get_market_odds_cached(player_a, player_b, now=None):
+    """Return get_market_odds(...), cached 60 seconds per pair.
+
+    now is injectable for tests. The key is case-insensitive, so
+    "Sinner" and "sinner" share one entry.
+    """
+    key = (player_a.strip().lower(), player_b.strip().lower())
+    at = time.monotonic() if now is None else now
+    entry = _market_cache.get(key)
+    if entry is not None:
+        result, cached_at = entry
+        if at - cached_at < _MARKET_CACHE_TTL_SECONDS:
+            return result
+    result = _get_market_odds(player_a, player_b)
+    _market_cache[key] = (result, at)
+    return result
 
 
 def build_report_response(final_state):
@@ -121,6 +187,8 @@ def build_report_response(final_state):
             "plan": final_state.get("plan"),
             "verification": verification,
         }
+    report = final_state.get("report")
+    summary = _build_summary(report) if isinstance(report, dict) else None
     return 200, {
         "question": final_state.get("question"),
         "final_text": final_state.get("final_text", ""),
@@ -129,6 +197,7 @@ def build_report_response(final_state):
         "verification": verification,
         "llm_model": final_state.get("llm_model"),
         "graph_used_langgraph": final_state.get("_used_langgraph"),
+        "summary": summary,
     }
 
 
@@ -160,12 +229,6 @@ def create_app(graph_runner=None):
     if not FASTAPI_AVAILABLE:
         raise RuntimeError("fastapi is not installed. Run: python -m pip install fastapi uvicorn")
     app = FastAPI(title="Tennis Scout Agent")
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["http://127.0.0.1:3000", "http://localhost:3000"],
-        allow_methods=["GET", "POST"],
-        allow_headers=["*"],
-    )
     app.state.graph_runner = graph_runner or default_report_runner
 
     class ReportRequest(BaseModel):
@@ -192,6 +255,22 @@ def create_app(graph_runner=None):
         if status_code != 200:
             raise HTTPException(status_code=status_code, detail=payload)
         return payload
+
+    @app.get("/market")
+    def market(player_a: str, player_b: str):
+        """Read-only market odds for two players.
+
+        Query: /market?player_a=Jannik%20Sinner&player_b=Carlos%20Alcaraz
+        Returns {"polymarket": {...} or None, "kalshi": {...} or None}.
+        A venue with no matching market returns None for that
+        venue. This endpoint never raises on a market lookup
+        failure, and it is never called by /report. Results are
+        cached 60 seconds per pair, so a UI polling once a
+        minute never pays for a second venue fetch.
+        """
+        if not player_a.strip() or not player_b.strip():
+            raise HTTPException(status_code=422, detail={"error": "empty_player"})
+        return _get_market_odds_cached(player_a.strip(), player_b.strip())
 
     return app
 
