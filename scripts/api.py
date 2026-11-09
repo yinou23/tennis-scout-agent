@@ -92,12 +92,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 try:
     from fastapi import FastAPI, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
     from pydantic import BaseModel
 
     FASTAPI_AVAILABLE = True
 except ImportError:  # pragma: no cover - assistant VM has no fastapi, Mac does
     FastAPI = None
     HTTPException = None
+    CORSMiddleware = None
     BaseModel = object
     FASTAPI_AVAILABLE = False
 
@@ -229,6 +231,18 @@ def create_app(graph_runner=None):
     if not FASTAPI_AVAILABLE:
         raise RuntimeError("fastapi is not installed. Run: python -m pip install fastapi uvicorn")
     app = FastAPI(title="Tennis Scout Agent")
+    # CORS, restored from Week 5 Step 2: the Next.js dev server runs on
+    # port 3000 and the API on port 8000, so without this the browser
+    # blocks the fetch. The Step 3 rewrite was based on the pre-CORS
+    # version and dropped it, which broke /report from the web page
+    # (preflight OPTIONS returned 405). Only the two local origins,
+    # only GET and POST.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://127.0.0.1:3000", "http://localhost:3000"],
+        allow_methods=["GET", "POST"],
+        allow_headers=["*"],
+    )
     app.state.graph_runner = graph_runner or default_report_runner
 
     class ReportRequest(BaseModel):
