@@ -1,21 +1,18 @@
 /* Week 9 Step 3: dark page, light cards, gauge dashboard.
    Presentation only. No tennis number is computed here. The
    report text is rendered verbatim from the API, and the gauge
-   and bars only reformat numbers the API already returned.
-   Gauge needle angle and bar width are display transforms only,
+   only reformats a number the API already returned.
+   The gauge needle angle is a display transform only,
    and the original number is always shown alongside. */
 body { background: #0b1220; color: #e5e7eb; font-family: system-ui, -apple-system, sans-serif; margin: 0; }
 main { margin: 0 auto; max-width: 1060px; padding: 28px 16px 56px; }
-.topbar { align-items: center; display: flex; justify-content: space-between; gap: 12px; }
+.topbar { align-items: center; border-bottom: 1px solid #263248; display: flex; justify-content: space-between; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; }
+.topbar-right { align-items: center; display: flex; gap: 8px; }
+.status-pill { align-items: center; background: #1e293b; border: 1px solid #475569; border-radius: 999px; color: #e2e8f0; display: flex; font-size: 13px; gap: 8px; padding: 6px 12px; }
 .lang-toggle { background: #1e293b; border: 1px solid #334155; border-radius: 999px; color: #e2e8f0; cursor: pointer; font-size: 14px; margin-top: 0; padding: 8px 14px; }
 .lang-toggle:hover { border-color: #4ade80; }
-header.hero { border-bottom: 1px solid #263248; margin-bottom: 20px; padding-bottom: 16px; }
-h1 { color: #ffffff; font-size: 32px; line-height: 1.2; margin: 0 0 8px; }
+h1 { color: #ffffff; font-size: 32px; line-height: 1.2; margin: 0; }
 .title-agent { color: #4ade80; }
-.badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
-.badge { background: #1e293b; border: 1px solid #334155; border-radius: 999px; color: #e2e8f0; font-size: 13px; padding: 5px 10px; }
-.badge-green { background: #14532d; border-color: #22c55e; color: #bbf7d0; }
-.status { align-items: center; display: flex; gap: 8px; margin: 0; }
 .dot { border-radius: 50%; display: inline-block; height: 10px; width: 10px; }
 .dot-ok { background: #4ade80; }
 .dot-bad { background: #f87171; }
@@ -57,18 +54,18 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .calib-chip .info-btn { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
 .calib-value { font-weight: 700; margin-left: auto; }
 .fav-name { color: #15803d; }
+.lead { color: #15803d; }
 .avatar { border-radius: 50%; display: block; height: 72px; margin: 0 auto 6px; object-fit: cover; width: 72px; }
 .avatar-flip { transform: scaleX(-1); }
 .avatar-lg { height: 88px; width: 88px; }
 .matches { margin-top: 20px; }
-.matches h2 { color: #ffffff; font-size: 19px; margin: 0 0 10px; }
 .matches-note { color: #94a3b8; font-size: 14px; margin: 4px 0 0; }
 .matches-grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
 .fixture-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; color: #e2e8f0; cursor: pointer; margin-top: 0; padding: 14px 16px; text-align: left; width: 100%; }
 .fixture-card:hover { border-color: #4ade80; }
 .fixture-card.active { border-color: #22c55e; box-shadow: 0 0 0 1px #22c55e; }
 .fixture-time { color: #fbbf24; font-size: 14px; font-weight: 700; }
-.fixture-tournament { color: #94a3b8; font-size: 13px; margin-top: 2px; }
+.fixture-event { color: #94a3b8; font-weight: 400; }
 .fixture-players { align-items: center; display: flex; gap: 8px; margin-top: 8px; }
 .fixture-player { align-items: center; display: flex; font-size: 17px; font-weight: 700; gap: 8px; }
 .fixture-player .avatar { height: 34px; margin: 0; width: 34px; }
@@ -82,12 +79,12 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .side-table th:nth-child(1), .side-table td:nth-child(1) { text-align: right; }
 .side-table th:nth-child(2), .side-table td:nth-child(2) { color: #6b7280; text-align: center; }
 .sub-label { color: #6b7280; font-size: 12px; }
-.bar { background: #e5e7eb; border-radius: 999px; height: 8px; margin-top: 6px; overflow: hidden; }
-.bar-fill { background: #15803d; border-radius: 999px; height: 8px; }
 .market-grid { display: grid; gap: 0 20px; grid-template-columns: 1fr 1fr; }
-.market-row { border-bottom: 1px solid #e5e7eb; padding: 10px 0; }
+.market-row { align-items: baseline; border-bottom: 1px solid #e5e7eb; display: flex; gap: 12px; justify-content: space-between; padding: 10px 0; }
 .market-row:last-child { border-bottom: 0; }
 .market-row p { margin: 4px 0; }
+.market-readonly { color: #6b7280; font-size: 13px; }
+.market-value { font-weight: 700; text-align: right; white-space: nowrap; }
 .market-note { color: #6b7280; font-size: 14px; }
 .market-controls { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .market-controls button { margin-top: 0; padding: 6px 12px; width: auto; }

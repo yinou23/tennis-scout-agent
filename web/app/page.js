@@ -10,7 +10,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 // fields and shown exactly as returned. The only arithmetic allowed
 // is a display transform, documented where it is used:
 //   gauge needle angle = prob * 180 degrees (display only)
-//   bar width = rate * 100 percent (display only)
 //   percentage text = rate * 100, one decimal (display only)
 // In both cases the original number is shown alongside, and the
 // transform never changes the number itself. The report text is
@@ -81,9 +80,8 @@ function avatarSrc(name) {
 const STRINGS = {
   zh: {
     title: "Tennis Scout Agent",
-    badgeDataAsOf: "数据截至 2026-05-25",
-    badgeNotLive: "不是实时数据",
-    badgeDb: "数字来自数据库查询",
+    dataCutoff: "数据截至 2026-05-25，排名截至 2026-06-08",
+    datasetLine: "比赛数据：Jeff Sackmann ATP 数据集 · 数据截至 2026-05-25，排名截至 2026-06-08",
     connected: "已连接",
     notConnected: "未连接",
     playerA: "球员 A",
@@ -99,25 +97,29 @@ const STRINGS = {
     favorite: "热门",
     probability: "概率",
     calibratedProb: "校准概率",
-    matches: "接下来要打的比赛",
     matchesLoading: "正在拉取赛程",
     matchesEmpty: "暂无即将开打的比赛",
     matchesUnavailable: "赛程暂时不可用",
     noQuote: "暂无报价",
     probInfo: "这是用 Elo 算出来的校准概率，0.5 是五五开，表针偏向哪一边，哪一边就是热门。混合概率是校准前的数，放在右边数据一览里。",
     mixedProb: "混合概率",
+    mixedProbInfo: "混合概率是校准前的概率，先把场地 Elo 和总 Elo 混合，再校准成最终概率。",
     elo: "Elo",
     eloInfo: "Elo 是从历史比赛算出来的评分，分数越高，历史表现越强。",
     blendInfo: "场地混合是把该场地的 Elo 和总 Elo 混合起来算的，用的先验是 100，场地比赛越多，场地 Elo 的权重越大。",
     overallElo: "总 Elo",
     surfaceElo: "场地 Elo",
     surfaceRecord: "场地战绩",
+    surfaceRecordInfo: "该球员在这个场地上的胜负场次和胜率。",
     last10: "最近 10 场胜率",
+    last10Info: "最近 10 场比赛的胜率，括号里是胜场数。",
     h2h: "交手",
+    h2hInfo: "两人历史交手的胜负场次，括号里是总场数。",
     meetings: "场",
     wins: "胜",
     market: "市场概率",
     marketNote: "市场概率是投注市场投出来的，和模型概率是两回事，只做对照，不混在一起。",
+    marketReadOnly: "只读行情，不下单",
     marketPolymarket: "Polymarket",
     marketKalshi: "Kalshi",
     marketNoMarket: "没有找到对应市场",
@@ -130,8 +132,6 @@ const STRINGS = {
     marketAutoRefresh: "自动刷新",
     marketAutoOn: "开",
     marketAutoOff: "关",
-    marketFetched: "拉取时间",
-    marketVolume: "成交量",
     fullReport: "完整报告",
     sources: "来源与核查",
     verificationPassed: "核查通过",
@@ -155,9 +155,8 @@ const STRINGS = {
   },
   en: {
     title: "Tennis Scout Agent",
-    badgeDataAsOf: "Data as of 2026-05-25",
-    badgeNotLive: "Not live",
-    badgeDb: "Numbers from database queries",
+    dataCutoff: "Data as of 2026-05-25, rankings as of 2026-06-08",
+    datasetLine: "Match data: Jeff Sackmann ATP dataset · Data as of 2026-05-25, rankings as of 2026-06-08",
     connected: "Connected",
     notConnected: "Not connected",
     playerA: "Player A",
@@ -173,25 +172,29 @@ const STRINGS = {
     favorite: "Favorite",
     probability: "Probability",
     calibratedProb: "Calibrated probability",
-    matches: "Upcoming matches",
     matchesLoading: "Loading matches",
     matchesEmpty: "No upcoming matches",
     matchesUnavailable: "Schedule unavailable",
     noQuote: "No quote",
     probInfo: "This is the calibrated probability from Elo. 0.5 is even, and the needle leans toward the favorite. The blended probability is the pre-calibration number, shown in the side list.",
     mixedProb: "Blended probability",
+    mixedProbInfo: "Blended probability is the pre-calibration number: surface Elo and overall Elo are blended first, then calibrated into the final probability.",
     elo: "Elo",
     eloInfo: "Elo is a rating computed from match history. A higher rating means stronger past results.",
     blendInfo: "Surface blend mixes the surface Elo with the overall Elo, with prior 100. More matches on that surface give the surface Elo more weight.",
     overallElo: "Overall Elo",
     surfaceElo: "Surface Elo",
     surfaceRecord: "Surface record",
+    surfaceRecordInfo: "This player's win-loss record and win rate on this surface.",
     last10: "Last 10 win rate",
+    last10Info: "Win rate over the last 10 matches; wins in parentheses.",
     h2h: "Head to head",
+    h2hInfo: "Head-to-head wins for each side; total meetings in parentheses.",
     meetings: "meetings",
     wins: "wins",
     market: "Market probabilities",
     marketNote: "Market probabilities come from betting markets. They are separate from the model probability, shown only for comparison.",
+    marketReadOnly: "Read-only prices, no trading",
     marketPolymarket: "Polymarket",
     marketKalshi: "Kalshi",
     marketNoMarket: "No market found",
@@ -204,8 +207,6 @@ const STRINGS = {
     marketAutoRefresh: "Auto refresh",
     marketAutoOn: "On",
     marketAutoOff: "Off",
-    marketFetched: "Fetched at",
-    marketVolume: "Volume",
     fullReport: "Full report",
     sources: "Sources and verification",
     verificationPassed: "Verification passed",
@@ -287,6 +288,16 @@ function eloDiff(eloA, eloB) {
   if (a === null || b === null) return null;
   const diff = a - b;
   return `${diff >= 0 ? "+" : ""}${diff.toFixed(1)}`;
+}
+
+// Leading value in a comparison row: the larger number wins the
+// green mark. Ties and unparseable values get no mark. Used for
+// the side list only; it never changes a number, only its colour.
+function leadSide(a, b) {
+  const na = Number(a);
+  const nb = Number(b);
+  if (Number.isNaN(na) || Number.isNaN(nb) || na === nb) return null;
+  return na > nb ? "a" : "b";
 }
 
 function normalizePlayer(raw, fallbackName) {
@@ -380,8 +391,10 @@ function normalizeMarket(data) {
   if (Array.isArray(data)) entries = data;
   else if (Array.isArray(data.markets)) entries = data.markets;
   else if (data.polymarket !== undefined || data.kalshi !== undefined) {
-    if (data.polymarket) entries.push({ source: "Polymarket", ...data.polymarket });
-    if (data.kalshi) entries.push({ source: "Kalshi", ...data.kalshi });
+    // Always show both venues. A venue with no market renders as
+    // "no quote" (or "no market" when neither has one), never hidden.
+    entries.push(data.polymarket ? { source: "Polymarket", ...data.polymarket } : { source: "Polymarket" });
+    entries.push(data.kalshi ? { source: "Kalshi", ...data.kalshi } : { source: "Kalshi" });
   } else if (typeof data === "object") entries = [data];
   return entries.map((entry) => {
     if (!entry || typeof entry !== "object") return null;
@@ -464,18 +477,6 @@ function Gauge({ summary, t }) {
         <text x="170" y="36" fontSize="11" fill="#6b7280" textAnchor="start">75</text>
         <text x="176" y="114" fontSize="11" fill="#6b7280">100</text>
       </svg>
-    </div>
-  );
-}
-
-function RateBar({ rate }) {
-  const n = asNumber(rate);
-  if (n === null || n < 0 || n > 1) return null;
-  // Display transform only: bar width = rate * 100 percent.
-  // The original rate is shown as text next to the bar.
-  return (
-    <div className="bar" aria-hidden="true">
-      <div className="bar-fill" style={{ width: `${n * 100}%` }} />
     </div>
   );
 }
@@ -667,29 +668,37 @@ export default function Home() {
     : null;
   const verOk = report && report.verification && report.verification.ok;
   const surfaceLabel = summary && summary.surface ? summary.surface : null;
+  // Side list leading marks: the larger number in each row wins
+  // the green mark. Computed from the raw summary values, never
+  // from the formatted display text.
+  const leadBlended = summary ? leadSide(summary.prob_a_blended, summary.prob_b_blended) : null;
+  const leadElo = summary ? leadSide(summary.player_a.overall_elo, summary.player_b.overall_elo) : null;
+  const leadSurfaceElo = summary ? leadSide(summary.player_a.surface_elo, summary.player_b.surface_elo) : null;
+  const leadRecord = summary ? leadSide(summary.player_a.surface_win_rate, summary.player_b.surface_win_rate) : null;
+  const leadLast10 = summary ? leadSide(summary.player_a.last10_win_rate, summary.player_b.last10_win_rate) : null;
+  const leadH2h = summary ? leadSide(summary.h2h.wins_a, summary.h2h.wins_b) : null;
+  // Market rows: a venue with no quote shows "no quote" when the
+  // other venue has one, and "no market" when neither has one.
+  const marketHasAny = market.rows.some((row) => row.prob_a && row.prob_b);
+  const marketNameA = summary && summary.player_a.name ? summary.player_a.name : "A";
+  const marketNameB = summary && summary.player_b.name ? summary.player_b.name : "B";
 
   return (
     <main>
-      <div className="topbar">
-        <span className="status">
-          <span className={`dot ${connected ? "dot-ok" : "dot-bad"}`} />
-          {connected === null ? "..." : connected ? t.connected : t.notConnected}
-        </span>
-        <button type="button" className="lang-toggle" onClick={() => setLang(lang === "zh" ? "en" : "zh")}>
-          {lang === "zh" ? "English" : "中文"}
-        </button>
-      </div>
-      <header className="hero">
+      <header className="topbar">
         <h1>Tennis Scout <span className="title-agent">Agent</span></h1>
-        <div className="badges">
-          <span className="badge badge-green">{t.badgeDataAsOf}</span>
-          <span className="badge">{t.badgeNotLive}</span>
-          <span className="badge">{t.badgeDb}</span>
+        <div className="topbar-right">
+          <span className="status-pill">
+            <span className={`dot ${connected ? "dot-ok" : "dot-bad"}`} />
+            {connected === null ? "..." : connected ? t.connected : t.notConnected}
+          </span>
+          <button type="button" className="lang-toggle" onClick={() => setLang(lang === "zh" ? "en" : "zh")}>
+            {lang === "zh" ? "English" : "中文"}
+          </button>
         </div>
       </header>
 
       <section className="matches">
-        <h2>{t.matches}</h2>
         {matches.status === "loading" && <p className="matches-note">{t.matchesLoading}</p>}
         {matches.status === "unavailable" && <p className="matches-note">{t.matchesUnavailable}</p>}
         {matches.status === "done" && matches.rows.length === 0 && <p className="matches-note">{t.matchesEmpty}</p>}
@@ -710,8 +719,12 @@ export default function Home() {
                   className={`fixture-card${active ? " active" : ""}`}
                   onClick={() => onMatchClick(m)}
                 >
-                  {when && <div className="fixture-time">{when}</div>}
-                  {m.tournament && <div className="fixture-tournament">{m.tournament}</div>}
+                  {(when || m.tournament) && (
+                    <div className="fixture-time">
+                      {when}
+                      {m.tournament && <span className="fixture-event">{when ? ` · ${m.tournament}` : m.tournament}</span>}
+                    </div>
+                  )}
                   <div className="fixture-players">
                     <span className="fixture-player">
                       <Avatar name={m.player_a} />
@@ -822,12 +835,15 @@ export default function Home() {
               </thead>
               <tbody>
                 <tr>
-                  <td className="num">{summary.prob_a_blended || "-"}</td>
-                  <td>{t.mixedProb}</td>
-                  <td className="num">{summary.prob_b_blended || "-"}</td>
+                  <td className={`num${leadBlended === "a" ? " lead" : ""}`}>{summary.prob_a_blended || "-"}</td>
+                  <td>
+                    {t.mixedProb}
+                    <InfoButton id="mixed" openId={openInfo} setOpenId={setOpenInfo} label="i" />
+                  </td>
+                  <td className={`num${leadBlended === "b" ? " lead" : ""}`}>{summary.prob_b_blended || "-"}</td>
                 </tr>
                 <tr>
-                  <td className="num">{summary.player_a.overall_elo || "-"}</td>
+                  <td className={`num${leadElo === "a" ? " lead" : ""}`}>{summary.player_a.overall_elo || "-"}</td>
                   <td>
                     {t.overallElo}
                     <InfoButton id="elo" openId={openInfo} setOpenId={setOpenInfo} label="i" />
@@ -835,10 +851,10 @@ export default function Home() {
                       <div className="sub-label">{eloDiff(summary.player_a.overall_elo, summary.player_b.overall_elo)}</div>
                     )}
                   </td>
-                  <td className="num">{summary.player_b.overall_elo || "-"}</td>
+                  <td className={`num${leadElo === "b" ? " lead" : ""}`}>{summary.player_b.overall_elo || "-"}</td>
                 </tr>
                 <tr>
-                  <td className="num">{summary.player_a.surface_elo || "-"}</td>
+                  <td className={`num${leadSurfaceElo === "a" ? " lead" : ""}`}>{summary.player_a.surface_elo || "-"}</td>
                   <td>
                     {t.surfaceElo}{surfaceLabel ? ` (${surfaceLabel})` : ""}
                     <InfoButton id="blend" openId={openInfo} setOpenId={setOpenInfo} label="i" />
@@ -846,58 +862,69 @@ export default function Home() {
                       <div className="sub-label">{eloDiff(summary.player_a.surface_elo, summary.player_b.surface_elo)}</div>
                     )}
                   </td>
-                  <td className="num">{summary.player_b.surface_elo || "-"}</td>
+                  <td className={`num${leadSurfaceElo === "b" ? " lead" : ""}`}>{summary.player_b.surface_elo || "-"}</td>
                 </tr>
                 <tr>
-                  <td className="num">
+                  <td className={`num${leadRecord === "a" ? " lead" : ""}`}>
                     {summary.player_a.surface_win_rate ? asPct(summary.player_a.surface_win_rate) : "-"}
-                    <RateBar rate={summary.player_a.surface_win_rate} />
                     {summary.player_a.surface_wins !== null && summary.player_a.surface_losses !== null && (
                       <div className="sub-label">{`${summary.player_a.surface_wins}-${summary.player_a.surface_losses}`}</div>
                     )}
                   </td>
-                  <td>{t.surfaceRecord}{surfaceLabel ? ` (${surfaceLabel})` : ""}</td>
-                  <td className="num">
+                  <td>
+                    {t.surfaceRecord}{surfaceLabel ? ` (${surfaceLabel})` : ""}
+                    <InfoButton id="record" openId={openInfo} setOpenId={setOpenInfo} label="i" />
+                  </td>
+                  <td className={`num${leadRecord === "b" ? " lead" : ""}`}>
                     {summary.player_b.surface_win_rate ? asPct(summary.player_b.surface_win_rate) : "-"}
-                    <RateBar rate={summary.player_b.surface_win_rate} />
                     {summary.player_b.surface_wins !== null && summary.player_b.surface_losses !== null && (
                       <div className="sub-label">{`${summary.player_b.surface_wins}-${summary.player_b.surface_losses}`}</div>
                     )}
                   </td>
                 </tr>
                 <tr>
-                  <td className="num">
+                  <td className={`num${leadLast10 === "a" ? " lead" : ""}`}>
                     {summary.player_a.last10_win_rate || "-"}
-                    <RateBar rate={summary.player_a.last10_win_rate} />
                     {summary.player_a.last10_wins !== null && summary.player_a.last10_wins !== undefined && summary.player_a.last10_wins !== "" && (
                       <div className="sub-label">{`${summary.player_a.last10_wins}${t.wins}`}</div>
                     )}
                   </td>
-                  <td>{t.last10}</td>
-                  <td className="num">
+                  <td>
+                    {t.last10}
+                    <InfoButton id="last10" openId={openInfo} setOpenId={setOpenInfo} label="i" />
+                  </td>
+                  <td className={`num${leadLast10 === "b" ? " lead" : ""}`}>
                     {summary.player_b.last10_win_rate || "-"}
-                    <RateBar rate={summary.player_b.last10_win_rate} />
                     {summary.player_b.last10_wins !== null && summary.player_b.last10_wins !== undefined && summary.player_b.last10_wins !== "" && (
                       <div className="sub-label">{`${summary.player_b.last10_wins}${t.wins}`}</div>
                     )}
                   </td>
                 </tr>
                 <tr>
-                  <td className="num">
+                  <td className={`num${leadH2h === "a" ? " lead" : ""}`}>
                     {summary.h2h.wins_a ? `${summary.h2h.wins_a} ${t.wins}` : "-"}
                   </td>
                   <td>
                     <div>{t.h2h}</div>
+                    <InfoButton id="h2h" openId={openInfo} setOpenId={setOpenInfo} label="i" />
                     {summary.h2h.total && <div className="sub-label">{`${summary.h2h.total} ${t.meetings}`}</div>}
                   </td>
-                  <td className="num">
+                  <td className={`num${leadH2h === "b" ? " lead" : ""}`}>
                     {summary.h2h.wins_b ? `${summary.h2h.wins_b} ${t.wins}` : "-"}
                   </td>
                 </tr>
               </tbody>
             </table>
-            {(openInfo === "elo" || openInfo === "blend") && (
-              <p className="info-text">{openInfo === "elo" ? t.eloInfo : t.blendInfo}</p>
+            {openInfo && openInfo !== "prob" && (
+              <p className="info-text">
+                {openInfo === "elo" ? t.eloInfo
+                  : openInfo === "blend" ? t.blendInfo
+                  : openInfo === "mixed" ? t.mixedProbInfo
+                  : openInfo === "record" ? t.surfaceRecordInfo
+                  : openInfo === "last10" ? t.last10Info
+                  : openInfo === "h2h" ? t.h2hInfo
+                  : ""}
+              </p>
             )}
           </section>
         </div>
@@ -924,16 +951,21 @@ export default function Home() {
           {market.status === "done" && market.rows.length === 0 && <p>{t.marketNoMarket}</p>}
           {market.status === "done" && market.rows.length > 0 && (
             <div className="market-grid">
-              {market.rows.map((row, idx) => (
-                <div className="market-row" key={`${row.source}-${idx}`}>
-                  <p><strong>{row.source}</strong></p>
-                  <p>{summary && summary.player_a.name ? `${summary.player_a.name}: ${row.prob_a || "-"}` : `A: ${row.prob_a || "-"}`}</p>
-                  <p>{summary && summary.player_b.name ? `${summary.player_b.name}: ${row.prob_b || "-"}` : `B: ${row.prob_b || "-"}`}</p>
-                  {row.fetched_at && <p>{t.marketFetched}: {row.fetched_at}</p>}
-                  {row.volume && <p>{t.marketVolume}: {row.volume}</p>}
-                  {row.question && <p>{row.question}</p>}
-                </div>
-              ))}
+              {market.rows.map((row, idx) => {
+                const hasQuote = row.prob_a && row.prob_b;
+                const value = hasQuote
+                  ? `${marketNameA} ${Math.round(Number(row.prob_a) * 100)}% · ${marketNameB} ${Math.round(Number(row.prob_b) * 100)}%`
+                  : (marketHasAny ? t.noQuote : t.marketNoMarket);
+                return (
+                  <div className="market-row" key={`${row.source}-${idx}`}>
+                    <div>
+                      <p><strong>{row.source}</strong></p>
+                      <p className="market-readonly">{t.marketReadOnly}</p>
+                    </div>
+                    <p className="market-value">{value}</p>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
@@ -949,7 +981,7 @@ export default function Home() {
       {report && (
         <details className="card">
           <summary>
-            {t.sources}: {verOk ? t.verificationPassed : t.verificationFailed}, {t.model}: {report.llm_model || "-"}, {t.badgeDataAsOf}
+            {t.sources}: {verOk ? t.verificationPassed : t.verificationFailed}, {t.model}: {report.llm_model || "-"}, {t.dataCutoff}
           </summary>
           <p>
             {t.plannerSource}: {report.planner_source}
@@ -957,6 +989,7 @@ export default function Home() {
           <p>{t.plan}: {planText(report.plan, t)}</p>
           <p>{t.model}: {report.llm_model}</p>
           <p>{t.langGraph}: {report.graph_used_langgraph ? t.yes : t.no}</p>
+          <p>{t.datasetLine}</p>
           {report.verification && (
             <ul>
               {verificationItems(report.verification, t).map((item) => (
