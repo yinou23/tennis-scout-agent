@@ -7,12 +7,31 @@ that actually has a market. Read-only, no key, no trading.
 Source: Polymarket Gamma events feed, ordered by startDate
 so the soonest upcoming matches come first:
   https://gamma-api.polymarket.com/events
-  ?limit=20&active=true&closed=false&tag_slug=tennis
+  ?limit=100&active=true&closed=false&tag_slug=tennis
   &order=startDate&ascending=false
 The unordered tag list is dominated by old ITF matches, so
 the ordering matters. The returned page is still sorted
 client-side by start time, so the soonest matches win even
-if the feed order drifts.
+if the feed order drifts. The limit is 100, not 20: the
+soonest 20 events are usually Challengers and ITF, so a
+narrow window would never reach an ATP Tour event.
+
+Tour level (user direction 2026-11-10): the strip shows
+ATP Tour events, 250 and above, only. The feed does not
+label the level: every tennis event sits under the same
+"ATP" series, Challengers and ITF included, and the slug
+starts with "atp-" for all of them. So the level is read
+from the tournament name, the only signal the feed
+carries. Tour events carry a proper event name (Nordic
+Open, Paris Masters, Moselle Open, ...); Challengers and
+ITF events are bare city names (Orleans, Knoxville, Lima)
+or ITF codes (W15, M15, W35). _is_atp_tour_level encodes
+that as a keyword rule. It is a heuristic, documented as
+such: a Tour event whose name carries none of the keywords
+would be missed and the strip would simply show fewer
+matches, and a Challenger listed as "City Open" would slip
+through. The strip would rather show fewer matches than a
+Challenger, so the rule errs toward exclusion.
 
 Rules, non-negotiable:
   - Read-only. No API key, no wallet, no trading.
@@ -30,6 +49,7 @@ Rules, non-negotiable:
     an empty list. These functions never raise.
 """
 
+import re
 import urllib.parse
 from datetime import datetime, timezone
 
@@ -44,10 +64,51 @@ from market_odds import (
 
 GAMMA_EVENTS_URL = (
     "https://gamma-api.polymarket.com/events"
-    "?limit=20&active=true&closed=false&tag_slug=tennis"
+    "?limit=100&active=true&closed=false&tag_slug=tennis"
     "&order=startDate&ascending=false"
 )
 MAX_MATCHES = 4
+
+
+# ATP Tour level, 250 and above only. See the module docstring
+# for why the level is read from the tournament name.
+_ATP_LEVEL_KEYWORDS = (
+    "open", "masters", "finals", "championship", "championships",
+    "cup", "classic", "trophy", "international", "grand prix",
+    "slam", "500", "1000", "250",
+)
+# The two Slams whose names carry no keyword above.
+_ATP_SLAMS_BY_NAME = ("roland garros", "wimbledon")
+# Team and exhibition events that carry a keyword but are not
+# ATP Tour singles events.
+_ATP_TEAM_EXCLUSIONS = (
+    "davis cup", "laver cup", "united cup", "hopman cup",
+    "billie jean",
+)
+_ITF_CODE_RE = re.compile(r"^[WM]\d+", re.IGNORECASE)
+
+
+def _is_atp_tour_level(tournament):
+    """True when the tournament name is an ATP Tour event, 250+.
+
+    Excludes ITF codes (W15, M15, W35, ...) and team events
+    (Davis Cup, Laver Cup, United Cup, ...). Includes a name
+    that carries an event keyword (Open, Masters, Finals, ...),
+    or one of the two Slams named without a keyword (Roland
+    Garros, Wimbledon). A bare city name (Orleans, Knoxville,
+    Lima, Monastir) or anything unrecognised returns False.
+    A missing or blank name returns False.
+    """
+    if not isinstance(tournament, str) or not tournament.strip():
+        return False
+    name = tournament.strip().lower()
+    if _ITF_CODE_RE.match(name):
+        return False
+    if any(ex in name for ex in _ATP_TEAM_EXCLUSIONS):
+        return False
+    if name in _ATP_SLAMS_BY_NAME:
+        return True
+    return any(kw in name for kw in _ATP_LEVEL_KEYWORDS)
 
 
 def _parse_start(value):
@@ -138,6 +199,8 @@ def get_upcoming_matches(http_get=None, limit=MAX_MATCHES):
             if parsed is None:
                 continue
             tournament, player_a, player_b = parsed
+            if not _is_atp_tour_level(tournament):
+                continue
             match = None
             for market in event.get("markets") or []:
                 if not isinstance(market, dict):

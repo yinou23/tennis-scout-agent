@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 import api
 from fastapi.testclient import TestClient
-from upcoming_matches import get_upcoming_matches
+from upcoming_matches import _is_atp_tour_level, get_upcoming_matches
 
 
 def _event(title, start, markets, closed=False):
@@ -51,19 +51,19 @@ def _payload(events):
 
 def test_returns_soonest_match_winner_first():
     late = _event(
-        "Knoxville: Nicolas Mejia vs Max Hans Rehberg",
+        "Moselle Open: Nicolas Mejia vs Max Hans Rehberg",
         "2026-11-10T00:06:26Z",
         [_winner_market(
-            "Knoxville: Nicolas Mejia vs Max Hans Rehberg",
+            "Moselle Open: Nicolas Mejia vs Max Hans Rehberg",
             ["Nicolas Mejia", "Max Hans Rehberg"],
             '["0.485", "0.515"]',
         )],
     )
     early = _event(
-        "Orleans: Benjamin Bonzi vs Tom Gentzsch",
+        "BNP Paribas Nordic Open: Benjamin Bonzi vs Tom Gentzsch",
         "2026-11-10T00:05:00Z",
         [_winner_market(
-            "Orleans: Benjamin Bonzi vs Tom Gentzsch",
+            "BNP Paribas Nordic Open: Benjamin Bonzi vs Tom Gentzsch",
             ["Benjamin Bonzi", "Tom Gentzsch"],
             '["0.5", "0.5"]',
         )],
@@ -72,7 +72,7 @@ def test_returns_soonest_match_winner_first():
     assert len(result) == 2
     assert result[0]["player_a"] == "Benjamin Bonzi"
     assert result[0]["player_b"] == "Tom Gentzsch"
-    assert result[0]["tournament"] == "Orleans"
+    assert result[0]["tournament"] == "BNP Paribas Nordic Open"
     assert result[0]["start_time"] == "2026-11-10T00:05:00Z"
     assert result[0]["polymarket"]["prob_a"] == 0.5
     assert result[0]["polymarket"]["prob_b"] == 0.5
@@ -85,10 +85,10 @@ def test_returns_soonest_match_winner_first():
 def test_limit_four():
     events = [
         _event(
-            f"Knoxville: Player A{i} vs Player B{i}",
+            f"Moselle Open: Player A{i} vs Player B{i}",
             f"2026-11-10T00:0{i}:00Z",
             [_winner_market(
-                f"Knoxville: Player A{i} vs Player B{i}",
+                f"Moselle Open: Player A{i} vs Player B{i}",
                 [f"Player A{i}", f"Player B{i}"],
                 '["0.5", "0.5"]',
             )],
@@ -103,7 +103,7 @@ def test_limit_four():
 
 def test_prop_market_skipped():
     prop = _event(
-        "Knoxville: Nicolas Mejia vs Max Hans Rehberg",
+        "Moselle Open: Nicolas Mejia vs Max Hans Rehberg",
         "2026-11-10T00:06:26Z",
         [_winner_market(
             "Set 1 Winner: Nicolas Mejia vs Max Hans Rehberg",
@@ -117,10 +117,10 @@ def test_prop_market_skipped():
 
 def test_closed_event_skipped():
     closed = _event(
-        "Knoxville: Nicolas Mejia vs Max Hans Rehberg",
+        "Moselle Open: Nicolas Mejia vs Max Hans Rehberg",
         "2026-11-10T00:06:26Z",
         [_winner_market(
-            "Knoxville: Nicolas Mejia vs Max Hans Rehberg",
+            "Moselle Open: Nicolas Mejia vs Max Hans Rehberg",
             ["Nicolas Mejia", "Max Hans Rehberg"],
             '["0.485", "0.515"]',
         )],
@@ -160,10 +160,10 @@ def test_non_match_event_skipped():
 
 def test_no_prices_returns_polymarket_none():
     no_price = _event(
-        "Knoxville: Nicolas Mejia vs Max Hans Rehberg",
+        "Moselle Open: Nicolas Mejia vs Max Hans Rehberg",
         "2026-11-10T00:06:26Z",
         [{
-            "question": "Knoxville: Nicolas Mejia vs Max Hans Rehberg",
+            "question": "Moselle Open: Nicolas Mejia vs Max Hans Rehberg",
             "slug": "some-event",
             "volume": None,
             "closed": False,
@@ -190,6 +190,108 @@ def test_unrecognised_payload_returns_empty_list():
         return {"weird": True}
 
     assert get_upcoming_matches(http_get=http_get) == []
+
+
+def test_atp_tour_level_names():
+    included = [
+        "BNP Paribas Nordic Open",
+        "Rolex Paris Masters",
+        "Moselle Open",
+        "Belgrade Open",
+        "Nitto ATP Finals",
+        "Next Gen ATP Finals",
+        "Australian Open",
+        "US Open",
+        "Roland Garros",
+        "Wimbledon",
+        "Adelaide International",
+        "Grand Prix Hassan II",
+        "U.S. Men's Clay Court Championship",
+        "Mallorca Championships",
+        "ASB Classic",
+    ]
+    excluded = [
+        "Orleans",
+        "Knoxville",
+        "Lima",
+        "Monastir",
+        "Hersonissos 3",
+        "Sopo",
+        "W15 Sharm ElSheikh",
+        "W15 Antalya",
+        "M15 Heraklion",
+        "M15 Sharm ElSheikh",
+        "W35 Heraklion",
+        "Davis Cup",
+        "Laver Cup",
+        "United Cup",
+        "Hopman Cup",
+        "Billie Jean King Cup",
+        "",
+        None,
+    ]
+    for name in included:
+        assert _is_atp_tour_level(name) is True, name
+    for name in excluded:
+        assert _is_atp_tour_level(name) is False, name
+
+
+def test_challenger_and_itf_events_excluded():
+    events = [
+        _event(
+            f"{tourn}: Player A{i} vs Player B{i}",
+            f"2026-11-10T00:0{i}:00Z",
+            [_winner_market(
+                f"{tourn}: Player A{i} vs Player B{i}",
+                [f"Player A{i}", f"Player B{i}"],
+                '["0.5", "0.5"]',
+            )],
+        )
+        for i, tourn in enumerate([
+            "Orleans", "Knoxville", "W15 Sharm ElSheikh",
+            "M15 Heraklion", "Hersonissos 3",
+        ])
+    ]
+    assert get_upcoming_matches(http_get=_payload(events)) == []
+
+
+def test_level_filter_applies_before_limit():
+    challengers = [
+        _event(
+            f"Orleans: Player C{i} vs Player D{i}",
+            f"2026-11-10T00:0{i}:00Z",
+            [_winner_market(
+                f"Orleans: Player C{i} vs Player D{i}",
+                [f"Player C{i}", f"Player D{i}"],
+                '["0.5", "0.5"]',
+            )],
+        )
+        for i in range(5)
+    ]
+    tour = [
+        _event(
+            "BNP Paribas Nordic Open: Lorenzo Sonego vs Alejandro Tabilo",
+            "2026-11-10T00:06:00Z",
+            [_winner_market(
+                "BNP Paribas Nordic Open: Lorenzo Sonego vs Alejandro Tabilo",
+                ["Lorenzo Sonego", "Alejandro Tabilo"],
+                '["0.52", "0.48"]',
+            )],
+        ),
+        _event(
+            "Moselle Open: Alexander Shevchenko vs Casper Ruud",
+            "2026-11-10T00:07:00Z",
+            [_winner_market(
+                "Moselle Open: Alexander Shevchenko vs Casper Ruud",
+                ["Alexander Shevchenko", "Casper Ruud"],
+                '["0.4", "0.6"]',
+            )],
+        ),
+    ]
+    result = get_upcoming_matches(http_get=_payload(challengers + tour))
+    assert len(result) == 2
+    assert result[0]["tournament"] == "BNP Paribas Nordic Open"
+    assert result[1]["tournament"] == "Moselle Open"
 
 
 def test_matches_endpoint_returns_list(monkeypatch):
