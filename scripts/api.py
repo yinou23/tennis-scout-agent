@@ -33,6 +33,14 @@ Endpoints:
     separately from the model probability, with source and
     timestamp. No market for a matchup returns None for
     that venue, never an invented number.
+  GET  /matches
+    Week 9 alignment: the live upcoming-matches strip. Returns
+    {"matches": [...], "fetched_at": ...} from
+    scripts/upcoming_matches.py, the soonest 4 match-winner
+    matches from the Polymarket Gamma events feed. A match
+    with no usable price is still listed, with polymarket
+    None. Never raises; an empty list means no usable
+    upcoming match, not an error.
     Failure, HTTP 422, returns:
       error, planner_source, plan, verification, with NO
       final_text presented as a report. A failed planner, a
@@ -86,6 +94,7 @@ import os
 import sys
 import time
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -132,6 +141,24 @@ def _get_market_odds(player_a, player_b):
         return get_market_odds(player_a, player_b)
     except Exception:
         return {"polymarket": None, "kalshi": None}
+
+
+def _get_upcoming_matches():
+    """Return get_upcoming_matches(...), or [] on failure.
+
+    The import is done here, not at module top, so a missing
+    upcoming_matches module does not break the other
+    endpoints. A lookup failure is never an endpoint failure,
+    it only means the strip shows no upcoming match.
+    """
+    try:
+        from upcoming_matches import get_upcoming_matches
+    except ImportError:
+        return []
+    try:
+        return get_upcoming_matches()
+    except Exception:
+        return []
 
 
 # Market cache: the UI polls /market every 60 seconds, and
@@ -285,6 +312,20 @@ def create_app(graph_runner=None):
         if not player_a.strip() or not player_b.strip():
             raise HTTPException(status_code=422, detail={"error": "empty_player"})
         return _get_market_odds_cached(player_a.strip(), player_b.strip())
+
+    @app.get("/matches")
+    def matches():
+        """Live upcoming matches for the strip above the dashboard.
+
+        Returns {"matches": [...], "fetched_at": ...}. The list
+        is the soonest 4 match-winner matches from Polymarket,
+        or [] when none is usable. No cache: the strip is
+        fetched once per page load, not polled.
+        """
+        return {
+            "matches": _get_upcoming_matches(),
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+        }
 
     return app
 

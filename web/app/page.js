@@ -98,6 +98,12 @@ const STRINGS = {
     sideList: "数据一览",
     favorite: "热门",
     probability: "概率",
+    calibratedProb: "校准概率",
+    matches: "接下来要打的比赛",
+    matchesLoading: "正在拉取赛程",
+    matchesEmpty: "暂无即将开打的比赛",
+    matchesUnavailable: "赛程暂时不可用",
+    noQuote: "暂无报价",
     probInfo: "这是用 Elo 算出来的校准概率，0.5 是五五开，表针偏向哪一边，哪一边就是热门。混合概率是校准前的数，放在右边数据一览里。",
     mixedProb: "混合概率",
     elo: "Elo",
@@ -166,6 +172,12 @@ const STRINGS = {
     sideList: "At a glance",
     favorite: "Favorite",
     probability: "Probability",
+    calibratedProb: "Calibrated probability",
+    matches: "Upcoming matches",
+    matchesLoading: "Loading matches",
+    matchesEmpty: "No upcoming matches",
+    matchesUnavailable: "Schedule unavailable",
+    noQuote: "No quote",
     probInfo: "This is the calibrated probability from Elo. 0.5 is even, and the needle leans toward the favorite. The blended probability is the pre-calibration number, shown in the side list.",
     mixedProb: "Blended probability",
     elo: "Elo",
@@ -217,6 +229,17 @@ const STRINGS = {
   },
 };
 
+// Surface names for the dashboard chip: the preview shows
+// "HARD · 硬地". The chip is shown only when a surface is set.
+const SURFACE_ZH = { Hard: "硬地", Clay: "红土", Grass: "草地", Carpet: "地毯" };
+
+function surfaceChip(surface, lang) {
+  if (!surface) return null;
+  const upper = String(surface).toUpperCase();
+  if (lang === "zh") return `${upper} · ${SURFACE_ZH[surface] || surface}`;
+  return upper;
+}
+
 function pick(obj, keys) {
   if (!obj || typeof obj !== "object") return undefined;
   for (const key of keys) {
@@ -253,6 +276,17 @@ function asPct(value) {
   const n = Number(value);
   if (Number.isFinite(n)) return `${(n * 100).toFixed(1)}%`;
   return String(value);
+}
+
+function eloDiff(eloA, eloB) {
+  // Display transform only: the Elo gap between the two
+  // players, one decimal, with a sign. Null when either
+  // side is missing, never invented.
+  const a = asNumber(eloA);
+  const b = asNumber(eloB);
+  if (a === null || b === null) return null;
+  const diff = a - b;
+  return `${diff >= 0 ? "+" : ""}${diff.toFixed(1)}`;
 }
 
 function normalizePlayer(raw, fallbackName) {
@@ -425,13 +459,11 @@ function Gauge({ summary, t }) {
         <line x1={cx} y1={cy} x2={x2} y2={y2} stroke="#111827" strokeWidth="3" strokeLinecap="round" />
         <circle cx={cx} cy={cy} r="6" fill="#111827" />
         <text x="20" y="114" fontSize="11" fill="#6b7280">0</text>
-        <text x="96" y="14" fontSize="11" fill="#6b7280">0.5</text>
-        <text x="176" y="114" fontSize="11" fill="#6b7280">1</text>
+        <text x="30" y="36" fontSize="11" fill="#6b7280" textAnchor="end">25</text>
+        <text x="96" y="14" fontSize="11" fill="#6b7280">50</text>
+        <text x="170" y="36" fontSize="11" fill="#6b7280" textAnchor="start">75</text>
+        <text x="176" y="114" fontSize="11" fill="#6b7280">100</text>
       </svg>
-      <div className="gauge-labels">
-        <span>{summary.player_a.name || "-"}: {summary.prob_a_calibrated}</span>
-        <span>{summary.player_b.name || "-"}: {summary.prob_b_calibrated}</span>
-      </div>
     </div>
   );
 }
@@ -480,6 +512,22 @@ export default function Home() {
   const [marketAuto, setMarketAuto] = useState(true);
   const [marketRefreshing, setMarketRefreshing] = useState(false);
   const [marketRefreshFailed, setMarketRefreshFailed] = useState(false);
+  const [matches, setMatches] = useState({ status: "idle", rows: [] });
+
+  // Upcoming-matches strip: fetched once when the page loads,
+  // from the live Polymarket feed, never from the preview's
+  // stale snapshot. A tap loads that matchup into the form
+  // and runs the report.
+  useEffect(() => {
+    setMatches({ status: "loading", rows: [] });
+    fetch(`${API_URL}/matches`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`matches ${res.status}`);
+        return res.json();
+      })
+      .then((data) => setMatches({ status: "done", rows: Array.isArray(data.matches) ? data.matches : [] }))
+      .catch(() => setMatches({ status: "unavailable", rows: [] }));
+  }, []);
 
   useEffect(() => {
     fetch(`${API_URL}/health`)
@@ -548,9 +596,9 @@ export default function Home() {
     if (marketPair) fetchMarket(marketPair.a, marketPair.b, { silent: true });
   }
 
-  async function onGenerate() {
-    const a = playerA.trim();
-    const b = playerB.trim();
+  async function onGenerate(override) {
+    const a = (override && override.a ? override.a : playerA).trim();
+    const b = (override && override.b ? override.b : playerB).trim();
     const adv = advanced.trim();
     let q = adv;
     if (!q) {
@@ -589,11 +637,26 @@ export default function Home() {
       const pa = (data.plan && data.plan.player_a) || a;
       const pb = (data.plan && data.plan.player_b) || b;
       fetchMarket(pa, pb);
+      // The dashboard only exists once a report is set, so
+      // scroll to it here, after the report lands.
+      const el = document.getElementById("dashboard");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (e) {
       setError({ message: `${t.networkError} ${String(e)}` });
     } finally {
       setLoading(false);
     }
+  }
+
+  // Strip tap: load the matchup into the form, keep the
+  // currently selected surface, and run the report. State
+  // updates are async, so the names are passed to onGenerate
+  // directly instead of read back from state.
+  function onMatchClick(match) {
+    setPlayerA(match.player_a);
+    setPlayerB(match.player_b);
+    setAdvanced("");
+    onGenerate({ a: match.player_a, b: match.player_b });
   }
 
   const summary = report ? normalizeSummary(report) : null;
@@ -617,7 +680,7 @@ export default function Home() {
         </button>
       </div>
       <header className="hero">
-        <h1>{t.title}</h1>
+        <h1>Tennis Scout <span className="title-agent">Agent</span></h1>
         <div className="badges">
           <span className="badge badge-green">{t.badgeDataAsOf}</span>
           <span className="badge">{t.badgeNotLive}</span>
@@ -625,24 +688,64 @@ export default function Home() {
         </div>
       </header>
 
+      <section className="matches">
+        <h2>{t.matches}</h2>
+        {matches.status === "loading" && <p className="matches-note">{t.matchesLoading}</p>}
+        {matches.status === "unavailable" && <p className="matches-note">{t.matchesUnavailable}</p>}
+        {matches.status === "done" && matches.rows.length === 0 && <p className="matches-note">{t.matchesEmpty}</p>}
+        {matches.status === "done" && matches.rows.length > 0 && (
+          <div className="matches-grid">
+            {matches.rows.map((m) => {
+              const poly = m.polymarket || null;
+              const fav = poly && poly.prob_a !== undefined && poly.prob_b !== undefined
+                ? (Number(poly.prob_a) >= Number(poly.prob_b) ? { name: m.player_a, prob: poly.prob_a } : { name: m.player_b, prob: poly.prob_b })
+                : null;
+              const active = playerA.trim() === m.player_a && playerB.trim() === m.player_b;
+              const when = m.start_time ? new Date(m.start_time).toLocaleString(lang === "zh" ? "zh-CN" : "en-US", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) : null;
+              const surname = (name) => String(name).trim().split(/\s+/).pop();
+              return (
+                <button
+                  key={`${m.player_a}-${m.player_b}-${m.start_time || ""}`}
+                  type="button"
+                  className={`fixture-card${active ? " active" : ""}`}
+                  onClick={() => onMatchClick(m)}
+                >
+                  {when && <div className="fixture-time">{when}</div>}
+                  {m.tournament && <div className="fixture-tournament">{m.tournament}</div>}
+                  <div className="fixture-players">
+                    <span className="fixture-player">
+                      <Avatar name={m.player_a} />
+                      {surname(m.player_a)}
+                    </span>
+                    <span className="fixture-vs">vs</span>
+                    <span className="fixture-player">
+                      <Avatar name={m.player_b} flip />
+                      {surname(m.player_b)}
+                    </span>
+                  </div>
+                  <div className="fixture-odds">
+                    {fav ? (
+                      <span className="fixture-pill">Polymarket {surname(fav.name)} {Math.round(Number(fav.prob) * 100)}%</span>
+                    ) : (
+                      <span className="fixture-pill">Polymarket {t.noQuote}</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       <div className="selectors">
         <div>
           <label htmlFor="player-a">{t.playerA}</label>
           <input id="player-a" type="text" list="player-list" value={playerA} onChange={(e) => setPlayerA(e.target.value)} />
         </div>
+        <span className="selectors-vs">VS</span>
         <div>
           <label htmlFor="player-b">{t.playerB}</label>
           <input id="player-b" type="text" list="player-list" value={playerB} onChange={(e) => setPlayerB(e.target.value)} />
-        </div>
-        <div>
-          <label htmlFor="surface">{t.surface}</label>
-          <select id="surface" value={surface} onChange={(e) => setSurface(e.target.value)}>
-            <option value="">{t.surfaceAny}</option>
-            <option value="Hard">Hard</option>
-            <option value="Clay">Clay</option>
-            <option value="Grass">Grass</option>
-            <option value="Carpet">Carpet</option>
-          </select>
         </div>
       </div>
       <datalist id="player-list">
@@ -650,9 +753,24 @@ export default function Home() {
           <option key={name} value={name} />
         ))}
       </datalist>
+      <div className="surface-row">
+        <div className="seg-group" role="group" aria-label={t.surface}>
+          {[["", t.surfaceAny], ["Hard", "Hard"], ["Clay", "Clay"], ["Grass", "Grass"], ["Carpet", "Carpet"]].map(([value, label]) => (
+            <button
+              key={value || "any"}
+              type="button"
+              className={`seg-btn${surface === value ? " seg-active" : ""}`}
+              aria-pressed={surface === value}
+              onClick={() => setSurface(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <button className="generate-btn" onClick={() => onGenerate()} disabled={loading}>{loading ? t.generating : t.generate}</button>
+      </div>
       <label htmlFor="advanced">{t.advancedLabel}</label>
-      <input id="advanced" type="text" value={advanced} onChange={(e) => setAdvanced(e.target.value)} placeholder={t.advancedPlaceholder} />
-      <button onClick={onGenerate} disabled={loading}>{loading ? t.generating : t.generate}</button>
+      <textarea id="advanced" rows={2} value={advanced} onChange={(e) => setAdvanced(e.target.value)} placeholder={t.advancedPlaceholder} />
 
       {error && (
         <section className="error">
@@ -672,104 +790,117 @@ export default function Home() {
       )}
 
       {report && summary && (
-        <section className="card">
-          <h2>
-            {t.dashboard}
-            <InfoButton id="prob" openId={openInfo} setOpenId={setOpenInfo} label="i" />
-          </h2>
-          {openInfo === "prob" && <p className="info-text">{t.probInfo}</p>}
-          <div className="avatar-row">
-            <Avatar name={summary.player_a.name} large />
-            <span className="avatar-vs">{t.vs}</span>
-            <Avatar name={summary.player_b.name} flip large />
-          </div>
-          <div className="dashboard">
-            <div>
+        <div className="dashboard-grid" id="dashboard">
+          <section className="card gauge-card">
+            <h2 className="matchup-title">
+              <span className={summary.favorite === summary.player_a.name ? "fav-name" : ""}>{summary.player_a.name || "-"}</span>
+              <span className="vs-muted"> vs </span>
+              <span className={summary.favorite === summary.player_b.name ? "fav-name" : ""}>{summary.player_b.name || "-"}</span>
+              {surfaceChip(summary.surface, lang) && <span className="surface-chip">{surfaceChip(summary.surface, lang)}</span>}
+            </h2>
+            <div className="gauge-zone">
+              <Avatar name={summary.player_a.name} large />
               <Gauge summary={summary} t={t} />
-              {summary.favorite && favProb && (
-                <p className="favorite-line">{t.favorite}: {summary.favorite} ({favProb})</p>
-              )}
+              <Avatar name={summary.player_b.name} flip large />
             </div>
-            <div>
-              <h3>{t.sideList}</h3>
-              <table className="side-table">
-                <thead>
-                  <tr>
-                    <th className={summary.favorite === summary.player_a.name ? "fav-name" : ""}>{summary.player_a.name || "-"}</th>
-                    <th>{""}</th>
-                    <th className={summary.favorite === summary.player_b.name ? "fav-name" : ""}>{summary.player_b.name || "-"}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="num">{summary.player_a.overall_elo || "-"}</td>
-                    <td>
-                      {t.overallElo}
-                      <InfoButton id="elo" openId={openInfo} setOpenId={setOpenInfo} label="i" />
-                    </td>
-                    <td className="num">{summary.player_b.overall_elo || "-"}</td>
-                  </tr>
-                  <tr>
-                    <td className="num">{summary.player_a.surface_elo || "-"}</td>
-                    <td>
-                      {t.surfaceElo}{surfaceLabel ? ` (${surfaceLabel})` : ""}
-                      <InfoButton id="blend" openId={openInfo} setOpenId={setOpenInfo} label="i" />
-                    </td>
-                    <td className="num">{summary.player_b.surface_elo || "-"}</td>
-                  </tr>
-                  <tr>
-                    <td className="num">{summary.prob_a_blended || "-"}</td>
-                    <td>{t.mixedProb}</td>
-                    <td className="num">{summary.prob_b_blended || "-"}</td>
-                  </tr>
-                  <tr>
-                    <td className="num">
-                      {summary.player_a.surface_win_rate ? asPct(summary.player_a.surface_win_rate) : "-"}
-                      <RateBar rate={summary.player_a.surface_win_rate} />
-                      {summary.player_a.surface_wins !== null && summary.player_a.surface_losses !== null && (
-                        <div className="sub-label">{`${summary.player_a.surface_wins}-${summary.player_a.surface_losses}`}</div>
-                      )}
-                    </td>
-                    <td>{t.surfaceRecord}{surfaceLabel ? ` (${surfaceLabel})` : ""}</td>
-                    <td className="num">
-                      {summary.player_b.surface_win_rate ? asPct(summary.player_b.surface_win_rate) : "-"}
-                      <RateBar rate={summary.player_b.surface_win_rate} />
-                      {summary.player_b.surface_wins !== null && summary.player_b.surface_losses !== null && (
-                        <div className="sub-label">{`${summary.player_b.surface_wins}-${summary.player_b.surface_losses}`}</div>
-                      )}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="num">
-                      {summary.player_a.last10_win_rate || "-"}
-                      <RateBar rate={summary.player_a.last10_win_rate} />
-                    </td>
-                    <td>{t.last10}</td>
-                    <td className="num">
-                      {summary.player_b.last10_win_rate || "-"}
-                      <RateBar rate={summary.player_b.last10_win_rate} />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="num">
-                      {summary.h2h.wins_a ? `${summary.h2h.wins_a} ${t.wins}` : "-"}
-                    </td>
-                    <td>
-                      <div>{t.h2h}</div>
-                      {summary.h2h.total && <div className="sub-label">{`${summary.h2h.total} ${t.meetings}`}</div>}
-                    </td>
-                    <td className="num">
-                      {summary.h2h.wins_b ? `${summary.h2h.wins_b} ${t.wins}` : "-"}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              {(openInfo === "elo" || openInfo === "blend") && (
-                <p className="info-text">{openInfo === "elo" ? t.eloInfo : t.blendInfo}</p>
-              )}
+            <div className="calib-chip">
+              <span>{t.calibratedProb}</span>
+              <InfoButton id="prob" openId={openInfo} setOpenId={setOpenInfo} label="i" />
+              <span className="calib-value">{favProb || "-"}</span>
             </div>
-          </div>
-        </section>
+            {openInfo === "prob" && <p className="info-text">{t.probInfo}</p>}
+          </section>
+          <section className="card">
+            <h2>{t.sideList}</h2>
+            <table className="side-table">
+              <thead>
+                <tr>
+                  <th className={summary.favorite === summary.player_a.name ? "fav-name" : ""}>{summary.player_a.name || "-"}</th>
+                  <th>{""}</th>
+                  <th className={summary.favorite === summary.player_b.name ? "fav-name" : ""}>{summary.player_b.name || "-"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="num">{summary.prob_a_blended || "-"}</td>
+                  <td>{t.mixedProb}</td>
+                  <td className="num">{summary.prob_b_blended || "-"}</td>
+                </tr>
+                <tr>
+                  <td className="num">{summary.player_a.overall_elo || "-"}</td>
+                  <td>
+                    {t.overallElo}
+                    <InfoButton id="elo" openId={openInfo} setOpenId={setOpenInfo} label="i" />
+                    {eloDiff(summary.player_a.overall_elo, summary.player_b.overall_elo) && (
+                      <div className="sub-label">{eloDiff(summary.player_a.overall_elo, summary.player_b.overall_elo)}</div>
+                    )}
+                  </td>
+                  <td className="num">{summary.player_b.overall_elo || "-"}</td>
+                </tr>
+                <tr>
+                  <td className="num">{summary.player_a.surface_elo || "-"}</td>
+                  <td>
+                    {t.surfaceElo}{surfaceLabel ? ` (${surfaceLabel})` : ""}
+                    <InfoButton id="blend" openId={openInfo} setOpenId={setOpenInfo} label="i" />
+                    {eloDiff(summary.player_a.surface_elo, summary.player_b.surface_elo) && (
+                      <div className="sub-label">{eloDiff(summary.player_a.surface_elo, summary.player_b.surface_elo)}</div>
+                    )}
+                  </td>
+                  <td className="num">{summary.player_b.surface_elo || "-"}</td>
+                </tr>
+                <tr>
+                  <td className="num">
+                    {summary.player_a.surface_win_rate ? asPct(summary.player_a.surface_win_rate) : "-"}
+                    <RateBar rate={summary.player_a.surface_win_rate} />
+                    {summary.player_a.surface_wins !== null && summary.player_a.surface_losses !== null && (
+                      <div className="sub-label">{`${summary.player_a.surface_wins}-${summary.player_a.surface_losses}`}</div>
+                    )}
+                  </td>
+                  <td>{t.surfaceRecord}{surfaceLabel ? ` (${surfaceLabel})` : ""}</td>
+                  <td className="num">
+                    {summary.player_b.surface_win_rate ? asPct(summary.player_b.surface_win_rate) : "-"}
+                    <RateBar rate={summary.player_b.surface_win_rate} />
+                    {summary.player_b.surface_wins !== null && summary.player_b.surface_losses !== null && (
+                      <div className="sub-label">{`${summary.player_b.surface_wins}-${summary.player_b.surface_losses}`}</div>
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="num">
+                    {summary.player_a.last10_win_rate || "-"}
+                    <RateBar rate={summary.player_a.last10_win_rate} />
+                    {summary.player_a.last10_wins !== null && summary.player_a.last10_wins !== undefined && summary.player_a.last10_wins !== "" && (
+                      <div className="sub-label">{`${summary.player_a.last10_wins}${t.wins}`}</div>
+                    )}
+                  </td>
+                  <td>{t.last10}</td>
+                  <td className="num">
+                    {summary.player_b.last10_win_rate || "-"}
+                    <RateBar rate={summary.player_b.last10_win_rate} />
+                    {summary.player_b.last10_wins !== null && summary.player_b.last10_wins !== undefined && summary.player_b.last10_wins !== "" && (
+                      <div className="sub-label">{`${summary.player_b.last10_wins}${t.wins}`}</div>
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="num">
+                    {summary.h2h.wins_a ? `${summary.h2h.wins_a} ${t.wins}` : "-"}
+                  </td>
+                  <td>
+                    <div>{t.h2h}</div>
+                    {summary.h2h.total && <div className="sub-label">{`${summary.h2h.total} ${t.meetings}`}</div>}
+                  </td>
+                  <td className="num">
+                    {summary.h2h.wins_b ? `${summary.h2h.wins_b} ${t.wins}` : "-"}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            {(openInfo === "elo" || openInfo === "blend") && (
+              <p className="info-text">{openInfo === "elo" ? t.eloInfo : t.blendInfo}</p>
+            )}
+          </section>
+        </div>
       )}
 
       {report && (
@@ -791,16 +922,20 @@ export default function Home() {
           {market.status === "loading" && <p>{t.marketLoading}</p>}
           {market.status === "unavailable" && <p>{t.marketUnavailable}</p>}
           {market.status === "done" && market.rows.length === 0 && <p>{t.marketNoMarket}</p>}
-          {market.status === "done" && market.rows.map((row, idx) => (
-            <div className="market-row" key={`${row.source}-${idx}`}>
-              <p><strong>{row.source}</strong></p>
-              <p>{summary && summary.player_a.name ? `${summary.player_a.name}: ${row.prob_a || "-"}` : `A: ${row.prob_a || "-"}`}</p>
-              <p>{summary && summary.player_b.name ? `${summary.player_b.name}: ${row.prob_b || "-"}` : `B: ${row.prob_b || "-"}`}</p>
-              {row.fetched_at && <p>{t.marketFetched}: {row.fetched_at}</p>}
-              {row.volume && <p>{t.marketVolume}: {row.volume}</p>}
-              {row.question && <p>{row.question}</p>}
+          {market.status === "done" && market.rows.length > 0 && (
+            <div className="market-grid">
+              {market.rows.map((row, idx) => (
+                <div className="market-row" key={`${row.source}-${idx}`}>
+                  <p><strong>{row.source}</strong></p>
+                  <p>{summary && summary.player_a.name ? `${summary.player_a.name}: ${row.prob_a || "-"}` : `A: ${row.prob_a || "-"}`}</p>
+                  <p>{summary && summary.player_b.name ? `${summary.player_b.name}: ${row.prob_b || "-"}` : `B: ${row.prob_b || "-"}`}</p>
+                  {row.fetched_at && <p>{t.marketFetched}: {row.fetched_at}</p>}
+                  {row.volume && <p>{t.marketVolume}: {row.volume}</p>}
+                  {row.question && <p>{row.question}</p>}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </section>
       )}
 
