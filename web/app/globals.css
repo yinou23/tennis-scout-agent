@@ -51,6 +51,8 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .gauge-zone { align-items: center; display: grid; gap: 8px; grid-template-columns: auto 1fr auto; }
 .gauge-zone .avatar { margin: 0; }
 .calib-chip { align-items: center; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; }
+.market-in-gauge { border-top: 1px solid #e5e7eb; margin-top: 12px; padding-top: 12px; }
+.market-in-gauge h3 { font-size: 16px; margin: 0 0 4px; }
 .calib-chip .info-btn { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
 .calib-value { font-weight: 700; margin-left: auto; }
 .fav-name { color: #15803d; }

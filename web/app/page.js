@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 // Week 9 Step 3: gauge dashboard, side list, bilingual UI, player
-// and surface selectors, foldables, market card. Presentation only.
+// and surface selectors, foldables, market section inside the gauge
+// card. Presentation only.
 //
 // Frontend computes NO tennis numbers. Probability, Elo, win rates,
 // surface record, and head to head are read from the API summary
@@ -451,9 +452,12 @@ function Avatar({ name, flip, large }) {
   );
 }
 
-// Gauge: semicircular SVG. Display transform only: needle angle
-// = prob * 180 degrees, where 0 is the left end, 0.5 is the center
-// top, and 1 is the right end. The original probability is shown
+// Gauge: semicircular SVG. Display transform only. Model: the left
+// end is player A (probA = 1), the right end is player B (probA =
+// 0), the centre is 50/50. The needle points toward the favoured
+// side, and the green fills from the centre toward the favoured
+// side, never from the far left, so a right-side favourite shows
+// green on the right only. The original probability is shown
 // alongside, and the angle never changes the number.
 function Gauge({ summary, t }) {
   const probA = asNumber(summary.prob_a_calibrated);
@@ -461,21 +465,24 @@ function Gauge({ summary, t }) {
   const cx = 100;
   const cy = 100;
   const r = 68;
-  const theta = ((180 - probA * 180) * Math.PI) / 180;
+  const theta = probA * Math.PI;
   const x2 = cx + r * Math.cos(theta);
   const y2 = cy - r * Math.sin(theta);
+  const arcLen = 251.3;
+  const centerPos = arcLen / 2;
+  const greenLen = Math.abs(probA - 0.5) * arcLen;
+  const greenStart = probA >= 0.5 ? (1 - probA) * arcLen : centerPos;
   return (
     <div className="gauge-wrap">
       <svg viewBox="0 0 200 115" width="100%" role="img" aria-label={t.probability}>
         <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e5e7eb" strokeWidth="10" strokeLinecap="round" />
-        <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#15803d" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${probA * 251.3} 251.3`} />
+        {greenLen > 0 && (
+          <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#15803d" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${greenLen} ${arcLen}`} strokeDashoffset={-greenStart} />
+        )}
         <line x1={cx} y1={cy} x2={x2} y2={y2} stroke="#111827" strokeWidth="3" strokeLinecap="round" />
         <circle cx={cx} cy={cy} r="6" fill="#111827" />
-        <text x="20" y="114" fontSize="11" fill="#6b7280">0</text>
-        <text x="30" y="36" fontSize="11" fill="#6b7280" textAnchor="end">25</text>
-        <text x="96" y="14" fontSize="11" fill="#6b7280">50</text>
-        <text x="170" y="36" fontSize="11" fill="#6b7280" textAnchor="start">75</text>
-        <text x="176" y="114" fontSize="11" fill="#6b7280">100</text>
+        <text x="20" y="114" fontSize="11" fill="#6b7280">100</text>
+        <text x="176" y="114" fontSize="11" fill="#6b7280">0</text>
       </svg>
     </div>
   );
@@ -537,7 +544,7 @@ export default function Home() {
       .catch(() => setConnected(false));
   }, []);
 
-  // Auto refresh: the market card is the only part of the page
+  // Auto refresh: the market section is the only part of the page
   // that changes during the day. The model numbers come from
   // the database as of 2026-05-25 and never move, so refresh
   // only re-fetches /market and only rewrites the market rows,
@@ -822,6 +829,44 @@ export default function Home() {
               <span className="calib-value">{favProb || "-"}</span>
             </div>
             {openInfo === "prob" && <p className="info-text">{t.probInfo}</p>}
+            <div className="market-in-gauge">
+              <h3>{t.market}</h3>
+              <p className="market-note">{t.marketNote}</p>
+              <div className="market-controls">
+                <button type="button" onClick={onRefreshMarket} disabled={!marketPair || marketRefreshing}>
+                  {marketRefreshing ? t.marketRefreshing : t.marketRefresh}
+                </button>
+                <button type="button" onClick={() => setMarketAuto(!marketAuto)} aria-pressed={marketAuto}>
+                  {t.marketAutoRefresh}: {marketAuto ? t.marketAutoOn : t.marketAutoOff}
+                </button>
+                {marketUpdatedAt && (
+                  <span>{t.marketUpdated}: {marketUpdatedAt.toLocaleTimeString()}</span>
+                )}
+              </div>
+              {marketRefreshFailed && <p>{t.marketUpdateFailed}</p>}
+              {market.status === "loading" && <p>{t.marketLoading}</p>}
+              {market.status === "unavailable" && <p>{t.marketUnavailable}</p>}
+              {market.status === "done" && market.rows.length === 0 && <p>{t.marketNoMarket}</p>}
+              {market.status === "done" && market.rows.length > 0 && (
+                <div className="market-grid">
+                  {market.rows.map((row, idx) => {
+                    const hasQuote = row.prob_a && row.prob_b;
+                    const value = hasQuote
+                      ? `${marketNameA} ${Math.round(Number(row.prob_a) * 100)}% · ${marketNameB} ${Math.round(Number(row.prob_b) * 100)}%`
+                      : (marketHasAny ? t.noQuote : t.marketNoMarket);
+                    return (
+                      <div className="market-row" key={`${row.source}-${idx}`}>
+                        <div>
+                          <p><strong>{row.source}</strong></p>
+                          <p className="market-readonly">{t.marketReadOnly}</p>
+                        </div>
+                        <p className="market-value">{value}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </section>
           <section className="card">
             <h2>{t.sideList}</h2>
@@ -928,47 +973,6 @@ export default function Home() {
             )}
           </section>
         </div>
-      )}
-
-      {report && (
-        <section className="card">
-          <h2>{t.market}</h2>
-          <p className="market-note">{t.marketNote}</p>
-          <div className="market-controls">
-            <button type="button" onClick={onRefreshMarket} disabled={!marketPair || marketRefreshing}>
-              {marketRefreshing ? t.marketRefreshing : t.marketRefresh}
-            </button>
-            <button type="button" onClick={() => setMarketAuto(!marketAuto)} aria-pressed={marketAuto}>
-              {t.marketAutoRefresh}: {marketAuto ? t.marketAutoOn : t.marketAutoOff}
-            </button>
-            {marketUpdatedAt && (
-              <span>{t.marketUpdated}: {marketUpdatedAt.toLocaleTimeString()}</span>
-            )}
-          </div>
-          {marketRefreshFailed && <p>{t.marketUpdateFailed}</p>}
-          {market.status === "loading" && <p>{t.marketLoading}</p>}
-          {market.status === "unavailable" && <p>{t.marketUnavailable}</p>}
-          {market.status === "done" && market.rows.length === 0 && <p>{t.marketNoMarket}</p>}
-          {market.status === "done" && market.rows.length > 0 && (
-            <div className="market-grid">
-              {market.rows.map((row, idx) => {
-                const hasQuote = row.prob_a && row.prob_b;
-                const value = hasQuote
-                  ? `${marketNameA} ${Math.round(Number(row.prob_a) * 100)}% · ${marketNameB} ${Math.round(Number(row.prob_b) * 100)}%`
-                  : (marketHasAny ? t.noQuote : t.marketNoMarket);
-                return (
-                  <div className="market-row" key={`${row.source}-${idx}`}>
-                    <div>
-                      <p><strong>{row.source}</strong></p>
-                      <p className="market-readonly">{t.marketReadOnly}</p>
-                    </div>
-                    <p className="market-value">{value}</p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
       )}
 
       {report && (
