@@ -90,6 +90,7 @@ Usage, from the project root ~/TSA, after activating the venv:
   error instead of a confusing import error at server start.
 """
 
+import os
 import sys
 import time
 import uuid
@@ -346,7 +347,11 @@ def main():
     except ImportError:
         print("ERROR: uvicorn is not installed. Run: python -m pip install uvicorn")
         return 1
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    # Host/port are env-configurable for containers (Cloud Run sets PORT and
+    # requires 0.0.0.0); defaults keep the local dev behavior (127.0.0.1:8000).
+    host = os.environ.get("TSA_HOST", "127.0.0.1")
+    port = int(os.environ.get("TSA_PORT", "8000"))
+    uvicorn.run(app, host=host, port=port)
     return 0
 
 
