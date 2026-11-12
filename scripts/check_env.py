@@ -1,7 +1,7 @@
 """TSA Step 2 doctor check.
 
-Prints a checklist, never prints secrets. If DATABASE_URL is set,
-only host, port, user and database are shown, the password is masked.
+Prints a checklist, never prints secrets. The database is a local
+SQLite file, SQLITE_PATH or data/tsa.db under the repo root.
 Run it from the project root: python scripts/check_env.py
 """
 
@@ -10,7 +10,9 @@ import platform
 import shutil
 import subprocess
 import sys
-from urllib.parse import urlparse
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 
 def mark(ok):
@@ -56,30 +58,29 @@ def main():
     print("--- python packages ---")
     check_import("fastapi")
     check_import("langgraph")
-    check_import("psycopg")
+    check_import("sqlite3")
     print("--- env and database ---")
     env_exists = os.path.exists(".env")
     print(f"{mark(env_exists)}.env file: {'found' if env_exists else 'not found, copy .env.example to .env'}")
-    url = os.environ.get("DATABASE_URL", "")
-    if url:
-        parsed = urlparse(url)
-        print(f"[OK] DATABASE_URL is set: host={parsed.hostname} port={parsed.port} user={parsed.username} db={parsed.path.lstrip('/')}")
-    else:
-        print("[MISSING] DATABASE_URL is not set in this shell. If you use .env, load it first or check the FastAPI /db endpoint after starting uvicorn.")
-        print("  Hint: the backend reads DATABASE_URL from the environment, not automatically from .env in Step 2.")
-    db_ok = False
-    if url:
-        try:
-            import psycopg
+    from db import get_connection, get_sqlite_path
 
-            with psycopg.connect(url, connect_timeout=3) as conn:
-                with conn.cursor() as cur:
-                    cur.execute("SELECT version();")
-                    row = cur.fetchone()
-            print(f"[OK] database connection: {row[0].split(',')[0] if row else 'connected'}")
-            db_ok = True
-        except Exception as exc:
-            print(f"[MISSING] database connection: {type(exc).__name__} (check: docker compose ps, is tsa-db running?)")
+    db_path = get_sqlite_path()
+    if db_path.exists():
+        print(f"[OK] SQLite database file: {db_path}")
+    else:
+        print(f"[MISSING] SQLite database file not found: {db_path} (set SQLITE_PATH to the tsa.db location)")
+    db_ok = False
+    try:
+        with get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT sqlite_version();")
+            row = cur.fetchone()
+            cur.execute("SELECT COUNT(*) FROM atp_players;")
+            players = cur.fetchone()[0]
+        print(f"[OK] database connection: SQLite {row[0] if row else 'connected'}, {players} players in atp_players")
+        db_ok = True
+    except Exception as exc:
+        print(f"[MISSING] database connection: {type(exc).__name__} (check SQLITE_PATH, is data/tsa.db present?)")
     print("--- summary ---")
     if has_python312 and db_ok:
         print("Core Step 2 checks look good. Next: run the FastAPI smoke test in README-STEP2.md.")

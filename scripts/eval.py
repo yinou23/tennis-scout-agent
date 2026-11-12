@@ -93,7 +93,6 @@ Usage, from the project root ~/TSA, after activating the venv:
 
 import argparse
 import json
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -291,14 +290,15 @@ def main(argv=None):
     parser.add_argument("--failures", default="eval/failures.jsonl")
     parser.add_argument("--only", default=None)
     args = parser.parse_args(argv)
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        print("ERROR: DATABASE_URL is not set. Run: set -a; source .env; set +a")
-        return 1
-    import psycopg
+    from db import get_connection
 
     cases = load_cases(args.cases)
-    with psycopg.connect(database_url) as conn:
+    try:
+        conn = get_connection()
+    except Exception as exc:  # noqa: BLE001 - missing SQLite file is a clean CLI error, not a crash
+        print(f"ERROR: could not open SQLite database: {exc}")
+        return 1
+    with conn:
         summary = run_eval(conn, cases, failures_path=args.failures, only=args.only)
     print(f"Total: {summary['total']}, Passed: {summary['passed']}, Failed: {summary['failed']}, Pass rate: {summary['pass_rate']:.4f}")
     print(f"Failures log: {args.failures}")

@@ -276,14 +276,15 @@ def main(argv):
     if len(argv) < 2:
         print('Usage: python scripts/full_graph.py "Jannik Sinner vs Carlos Alcaraz Hard"')
         return 1
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        print("ERROR: DATABASE_URL is not set. Run: set -a; source .env; set +a")
-        return 1
-    import psycopg
+    from db import get_connection
 
     question = argv[1]
-    with psycopg.connect(database_url) as conn:
+    try:
+        conn = get_connection()
+    except Exception as exc:  # noqa: BLE001 - missing SQLite file is a clean CLI error, not a crash
+        print(f"ERROR: could not open SQLite database: {exc}")
+        return 1
+    with conn:
         final_state = run_full_graph(conn, question)
     print(final_state.get("final_text", ""))
     print()

@@ -58,11 +58,11 @@ Runner injection, for tests:
   create_app(graph_runner=None) builds the app. graph_runner,
   when given, is a function(question) -> final_state dict, used
   by tests to avoid a database and a real LLM call. When it is
-  None, the default runner opens a psycopg connection from
-  DATABASE_URL, runs run_full_graph, and closes the connection.
-  If DATABASE_URL is not set, the default runner returns a
-  final_state with an error, and /report returns 422, it does
-  not crash the server.
+  None, the default runner opens a SQLite connection through
+  scripts/db.py get_connection(), runs run_full_graph, and closes
+  the connection. If the SQLite file cannot be opened, the
+  default runner returns a final_state with an error, and
+  /report returns 422, it does not crash the server.
   The graph runner is stored on app.state.graph_runner, so a
   test can also replace it after creation.
 
@@ -90,7 +90,6 @@ Usage, from the project root ~/TSA, after activating the venv:
   error instead of a confusing import error at server start.
 """
 
-import os
 import sys
 import time
 import uuid
@@ -232,19 +231,16 @@ def build_report_response(final_state):
 
 def default_report_runner(question):
     """Run the real full graph for one question, return final_state."""
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        return {"error": "database_url_not_set", "question": question}
     try:
-        import psycopg
+        from db import get_connection
     except ImportError as exc:
-        return {"error": f"psycopg_not_installed:{exc}", "question": question}
+        return {"error": f"db_helper_not_installed:{exc}", "question": question}
     try:
         from full_graph import run_full_graph
     except ImportError as exc:
         return {"error": f"full_graph_not_installed:{exc}", "question": question}
     try:
-        with psycopg.connect(database_url) as conn:
+        with get_connection() as conn:
             final_state = run_full_graph(conn, question, thread_id=f"api-{uuid.uuid4().hex}")
     except Exception as exc:  # noqa: BLE001 - API must report, not crash, on a runner failure
         return {"error": f"runner_failed:{type(exc).__name__}:{exc}", "question": question}

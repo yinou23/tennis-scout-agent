@@ -64,7 +64,6 @@ Usage, from the project root ~/TSA, after activating the venv:
 """
 
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -566,17 +565,18 @@ def main(argv):
         print('Usage: python scripts/scout_report.py "Jannik Sinner" "Carlos Alcaraz" "Hard"')
         print('Usage: python scripts/scout_report.py "Jannik Sinner" "Carlos Alcaraz"')
         return 1
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        print("ERROR: DATABASE_URL is not set. Run: set -a; source .env; set +a")
-        return 1
-    import psycopg
+    from db import get_connection
 
     player_a = argv[1]
     player_b = argv[2]
     surface = argv[3] if len(argv) >= 4 else None
     question = argv[4] if len(argv) >= 5 else f"{player_a} vs {player_b} {surface or ''}".strip()
-    with psycopg.connect(database_url) as conn:
+    try:
+        conn = get_connection()
+    except Exception as exc:  # noqa: BLE001 - missing SQLite file is a clean CLI error, not a crash
+        print(f"ERROR: could not open SQLite database: {exc}")
+        return 1
+    with conn:
         report = build_scout_report(conn, player_a, player_b, surface, question)
     if "error" in report:
         print(f"ERROR: {report['error']}")

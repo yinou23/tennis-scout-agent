@@ -68,7 +68,6 @@ Usage, from the project root ~/TSA, after activating the venv:
 """
 
 import argparse
-import os
 import sys
 import time
 from pathlib import Path
@@ -170,13 +169,14 @@ def main(argv=None):
     parser.add_argument("--surface", default="Hard")
     parser.add_argument("--output", default="samples/weekly_sample.md")
     args = parser.parse_args(argv)
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        print("ERROR: DATABASE_URL is not set. Run: set -a; source .env; set +a")
-        return 1
-    import psycopg
+    from db import get_connection
 
-    with psycopg.connect(database_url) as conn:
+    try:
+        conn = get_connection()
+    except Exception as exc:  # noqa: BLE001 - missing SQLite file is a clean CLI error, not a crash
+        print(f"ERROR: could not open SQLite database: {exc}")
+        return 1
+    with conn:
         try:
             markdown, _report, latency_ms = generate_sample(conn, args.player_a, args.player_b, args.surface)
         except ValueError as exc:

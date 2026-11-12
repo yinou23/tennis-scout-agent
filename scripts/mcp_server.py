@@ -116,7 +116,6 @@ Usage, from the project root ~/TSA, after activating the venv:
 """
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -149,12 +148,9 @@ def _error_json(message):
 
 
 def _open_conn():
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        raise RuntimeError("database_url_not_set")
-    import psycopg
+    from db import get_connection
 
-    return psycopg.connect(database_url)
+    return get_connection()
 
 
 def _run_with_conn(impl, *args, **kwargs):

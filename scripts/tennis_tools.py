@@ -30,7 +30,7 @@ What this tool does NOT do:
 
 Usage, from the project root ~/TSA, after activating the venv:
     source .venv/bin/activate
-    set -a; source .env; set +a
+    export SQLITE_PATH=/path/to/tsa.db  # optional, default is data/tsa.db under the repo root
     python scripts/tennis_tools.py "Sinner"
     python scripts/tennis_tools.py "Jannik Sinner" "Hard"
     python scripts/tennis_tools.py form "Jannik Sinner"
@@ -41,8 +41,8 @@ Usage, from the project root ~/TSA, after activating the venv:
 
 import json
 import math
-import os
 import sys
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -64,19 +64,19 @@ def _surface_current(conn, player_id, surface):
     winner_surface_n_before + 1; if the loser, use the loser fields.
     Returns (None, 0) if the player never played that surface.
     """
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT winner_id, winner_surface_after, winner_surface_n_before,
-                   loser_surface_after, loser_surface_n_before
-            FROM atp_surface_elo_history
-            WHERE surface = %s AND (winner_id = %s OR loser_id = %s)
-            ORDER BY tourney_date DESC, tourney_id DESC, match_num DESC
-            LIMIT 1
-            """,
-            (surface, player_id, player_id),
-        )
-        row = cur.fetchone()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT winner_id, winner_surface_after, winner_surface_n_before,
+               loser_surface_after, loser_surface_n_before
+        FROM atp_surface_elo_history
+        WHERE surface = ? AND (winner_id = ? OR loser_id = ?)
+        ORDER BY tourney_date DESC, tourney_id DESC, match_num DESC
+        LIMIT 1
+        """,
+        (surface, player_id, player_id),
+    )
+    row = cur.fetchone()
     if row is None:
         return None, 0
     winner_id, w_after, w_n, l_after, l_n = row
@@ -92,18 +92,18 @@ def find_players(conn, name):
     Empty list means no match. More than one means ambiguous.
     """
     name = name.strip()
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT player_id, first_name, last_name
-            FROM atp_players
-            WHERE LOWER(first_name || ' ' || last_name) = LOWER(%s)
-               OR LOWER(last_name) = LOWER(%s)
-            ORDER BY last_name, first_name
-            """,
-            (name, name),
-        )
-        return cur.fetchall()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT player_id, first_name, last_name
+        FROM atp_players
+        WHERE LOWER(first_name || ' ' || last_name) = LOWER(?)
+           OR LOWER(last_name) = LOWER(?)
+        ORDER BY last_name, first_name
+        """,
+        (name, name),
+    )
+    return cur.fetchall()
 
 
 def get_player_elo(conn, name):
@@ -126,13 +126,13 @@ def get_player_elo(conn, name):
             ],
         }
     player_id, first_name, last_name = candidates[0]
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT elo, matches_played, last_match_date "
-            "FROM atp_elo_current WHERE player_id = %s",
-            (player_id,),
-        )
-        row = cur.fetchone()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT elo, matches_played, last_match_date "
+        "FROM atp_elo_current WHERE player_id = ?",
+        (player_id,),
+    )
+    row = cur.fetchone()
     if row is None:
         return {
             "player_id": player_id,
@@ -227,58 +227,58 @@ def get_player_form(conn, name):
             ],
         }
     player_id, first_name, last_name = candidates[0]
-    with conn.cursor() as cur:
-        cur.execute("SELECT MAX(tourney_date) FROM atp_matches")
-        anchor = cur.fetchone()[0]
-        # Last 10 matches, most recent first.
-        cur.execute(
-            """
-            SELECT winner_id
-            FROM atp_matches
-            WHERE winner_id = %s OR loser_id = %s
-            ORDER BY tourney_date DESC, tourney_id DESC, match_num DESC
-            LIMIT 10
-            """,
-            (player_id, player_id),
-        )
-        last10_winners = [row[0] for row in cur.fetchall()]
-        # Last 52 weeks: matches in [anchor - 365 days, anchor].
-        cur.execute(
-            """
-            SELECT winner_id
-            FROM atp_matches
-            WHERE (winner_id = %s OR loser_id = %s)
-              AND tourney_date >= (%s::date - INTERVAL '365 days')
-              AND tourney_date <= %s
-            """,
-            (player_id, player_id, anchor, anchor),
-        )
-        last52_winners = [row[0] for row in cur.fetchall()]
-        # Games form: complete matches only, joined to atp_match_games.
-        cur.execute(
-            """
-            SELECT m.winner_id, g.winner_games, g.loser_games
-            FROM atp_matches m JOIN atp_match_games g
-              ON g.tourney_id = m.tourney_id AND g.match_num = m.match_num
-            WHERE (m.winner_id = %s OR m.loser_id = %s) AND g.is_complete
-            ORDER BY m.tourney_date DESC, m.tourney_id DESC, m.match_num DESC
-            LIMIT 10
-            """,
-            (player_id, player_id),
-        )
-        last10_games_rows = cur.fetchall()
-        cur.execute(
-            """
-            SELECT m.winner_id, g.winner_games, g.loser_games
-            FROM atp_matches m JOIN atp_match_games g
-              ON g.tourney_id = m.tourney_id AND g.match_num = m.match_num
-            WHERE (m.winner_id = %s OR m.loser_id = %s) AND g.is_complete
-              AND m.tourney_date >= (%s::date - INTERVAL '365 days')
-              AND m.tourney_date <= %s
-            """,
-            (player_id, player_id, anchor, anchor),
-        )
-        last52_games_rows = cur.fetchall()
+    cur = conn.cursor()
+    cur.execute("SELECT MAX(tourney_date) FROM atp_matches")
+    anchor = cur.fetchone()[0]
+    # Last 10 matches, most recent first.
+    cur.execute(
+        """
+        SELECT winner_id
+        FROM atp_matches
+        WHERE winner_id = ? OR loser_id = ?
+        ORDER BY tourney_date DESC, tourney_id DESC, match_num DESC
+        LIMIT 10
+        """,
+        (player_id, player_id),
+    )
+    last10_winners = [row[0] for row in cur.fetchall()]
+    # Last 52 weeks: matches in [anchor - 365 days, anchor].
+    cur.execute(
+        """
+        SELECT winner_id
+        FROM atp_matches
+        WHERE (winner_id = ? OR loser_id = ?)
+          AND tourney_date >= date(?, '-365 days')
+          AND tourney_date <= ?
+        """,
+        (player_id, player_id, anchor, anchor),
+    )
+    last52_winners = [row[0] for row in cur.fetchall()]
+    # Games form: complete matches only, joined to atp_match_games.
+    cur.execute(
+        """
+        SELECT m.winner_id, g.winner_games, g.loser_games
+        FROM atp_matches m JOIN atp_match_games g
+          ON g.tourney_id = m.tourney_id AND g.match_num = m.match_num
+        WHERE (m.winner_id = ? OR m.loser_id = ?) AND g.is_complete
+        ORDER BY m.tourney_date DESC, m.tourney_id DESC, m.match_num DESC
+        LIMIT 10
+        """,
+        (player_id, player_id),
+    )
+    last10_games_rows = cur.fetchall()
+    cur.execute(
+        """
+        SELECT m.winner_id, g.winner_games, g.loser_games
+        FROM atp_matches m JOIN atp_match_games g
+          ON g.tourney_id = m.tourney_id AND g.match_num = m.match_num
+        WHERE (m.winner_id = ? OR m.loser_id = ?) AND g.is_complete
+          AND m.tourney_date >= date(?, '-365 days')
+          AND m.tourney_date <= ?
+        """,
+        (player_id, player_id, anchor, anchor),
+    )
+    last52_games_rows = cur.fetchall()
 
     def _games_summary(rows):
         games_won = 0
@@ -296,58 +296,58 @@ def get_player_form(conn, name):
     # Retirement descriptor: RET losses only, loser retired mid-match.
     # Fetch last 10 matches with scores, the most recent RET loss,
     # RET count in the last52 window, and total RET losses.
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT winner_id, score
-            FROM atp_matches
-            WHERE winner_id = %s OR loser_id = %s
-            ORDER BY tourney_date DESC, tourney_id DESC, match_num DESC
-            LIMIT 10
-            """,
-            (player_id, player_id),
-        )
-        last10_score_rows = cur.fetchall()
-        cur.execute(
-            """
-            SELECT tourney_date, tourney_id, match_num
-            FROM atp_matches
-            WHERE loser_id = %s AND score LIKE %s
-            ORDER BY tourney_date DESC, tourney_id DESC, match_num DESC
-            LIMIT 1
-            """,
-            (player_id, '%RET%'),
-        )
-        last_ret_row = cur.fetchone()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT winner_id, score
+        FROM atp_matches
+        WHERE winner_id = ? OR loser_id = ?
+        ORDER BY tourney_date DESC, tourney_id DESC, match_num DESC
+        LIMIT 10
+        """,
+        (player_id, player_id),
+    )
+    last10_score_rows = cur.fetchall()
+    cur.execute(
+        """
+        SELECT tourney_date, tourney_id, match_num
+        FROM atp_matches
+        WHERE loser_id = ? AND score LIKE ?
+        ORDER BY tourney_date DESC, tourney_id DESC, match_num DESC
+        LIMIT 1
+        """,
+        (player_id, '%RET%'),
+    )
+    last_ret_row = cur.fetchone()
+    cur.execute(
+        """
+        SELECT COUNT(*)
+        FROM atp_matches
+        WHERE loser_id = ? AND score LIKE ?
+          AND tourney_date >= date(?, '-365 days')
+          AND tourney_date <= ?
+        """,
+        (player_id, '%RET%', anchor, anchor),
+    )
+    ret_last52_n = cur.fetchone()[0]
+    cur.execute(
+        "SELECT COUNT(*) FROM atp_matches WHERE loser_id = ? AND score LIKE ?",
+        (player_id, '%RET%'),
+    )
+    ret_total_n = cur.fetchone()[0]
+    matches_since_ret = None
+    if last_ret_row is not None:
+        ret_date, ret_tourney_id, ret_match_num = last_ret_row
         cur.execute(
             """
             SELECT COUNT(*)
             FROM atp_matches
-            WHERE loser_id = %s AND score LIKE %s
-              AND tourney_date >= (%s::date - INTERVAL '365 days')
-              AND tourney_date <= %s
+            WHERE (winner_id = ? OR loser_id = ?)
+              AND (tourney_date, tourney_id, match_num) > (?, ?, ?)
             """,
-            (player_id, '%RET%', anchor, anchor),
+            (player_id, player_id, ret_date, ret_tourney_id, ret_match_num),
         )
-        ret_last52_n = cur.fetchone()[0]
-        cur.execute(
-            "SELECT COUNT(*) FROM atp_matches WHERE loser_id = %s AND score LIKE %s",
-            (player_id, '%RET%'),
-        )
-        ret_total_n = cur.fetchone()[0]
-        matches_since_ret = None
-        if last_ret_row is not None:
-            ret_date, ret_tourney_id, ret_match_num = last_ret_row
-            cur.execute(
-                """
-                SELECT COUNT(*)
-                FROM atp_matches
-                WHERE (winner_id = %s OR loser_id = %s)
-                  AND (tourney_date, tourney_id, match_num) > (%s, %s, %s)
-                """,
-                (player_id, player_id, ret_date, ret_tourney_id, ret_match_num),
-            )
-            matches_since_ret = cur.fetchone()[0]
+        matches_since_ret = cur.fetchone()[0]
 
     def _is_ret_loss(winner_id, score):
         if winner_id == player_id:
@@ -359,7 +359,13 @@ def get_player_form(conn, name):
     ret_last10_n = sum(1 for w, s in last10_score_rows if _is_ret_loss(w, s))
     last_match_was_ret = bool(last10_score_rows) and _is_ret_loss(last10_score_rows[0][0], last10_score_rows[0][1])
     if last_ret_row is not None and anchor is not None:
-        days_since_ret = (anchor - last_ret_row[0]).days
+        # SQLite returns tourney_date as ISO text, not date
+        # objects, so parse both sides before subtracting.
+        # Query parameters above still use the text form, which
+        # is also what date(?, '-365 days') expects.
+        anchor_day = anchor if isinstance(anchor, date) else date.fromisoformat(anchor)
+        ret_day = last_ret_row[0] if isinstance(last_ret_row[0], date) else date.fromisoformat(last_ret_row[0])
+        days_since_ret = (anchor_day - ret_day).days
         last_ret_date_str = str(last_ret_row[0])
     else:
         days_since_ret = None
@@ -471,18 +477,18 @@ def get_head_to_head(conn, name_a, name_b):
             id_a, first_a, last_a = candidates[0]
         else:
             id_b, first_b, last_b = candidates[0]
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT tourney_date, tourney_name, surface, winner_id, score
-            FROM atp_matches
-            WHERE (winner_id = %s AND loser_id = %s)
-               OR (winner_id = %s AND loser_id = %s)
-            ORDER BY tourney_date, tourney_id, match_num
-            """,
-            (id_a, id_b, id_b, id_a),
-        )
-        meetings = cur.fetchall()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT tourney_date, tourney_name, surface, winner_id, score
+        FROM atp_matches
+        WHERE (winner_id = ? AND loser_id = ?)
+           OR (winner_id = ? AND loser_id = ?)
+        ORDER BY tourney_date, tourney_id, match_num
+        """,
+        (id_a, id_b, id_b, id_a),
+    )
+    meetings = cur.fetchall()
     rows = [(winner_id, surface) for _date, _name, surface, winner_id, _score in meetings]
     summary = _h2h_summary(rows, id_a, id_b)
     recent = [
@@ -546,20 +552,20 @@ def get_player_surface_record(conn, name):
             ],
         }
     player_id, first_name, last_name = candidates[0]
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT surface,
-                   SUM(CASE WHEN winner_id = %s THEN 1 ELSE 0 END) AS wins,
-                   COUNT(*) AS total
-            FROM atp_matches
-            WHERE winner_id = %s OR loser_id = %s
-            GROUP BY surface
-            ORDER BY total DESC
-            """,
-            (player_id, player_id, player_id),
-        )
-        rows = cur.fetchall()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT surface,
+               SUM(CASE WHEN winner_id = ? THEN 1 ELSE 0 END) AS wins,
+               COUNT(*) AS total
+        FROM atp_matches
+        WHERE winner_id = ? OR loser_id = ?
+        GROUP BY surface
+        ORDER BY total DESC
+        """,
+        (player_id, player_id, player_id),
+    )
+    rows = cur.fetchall()
     by_surface = {}
     total_matches = 0
     total_wins = 0
@@ -648,12 +654,12 @@ def get_match_probability(conn, name_a, name_b, surface=None):
     blended_elos = {}
     for side in ("a", "b"):
         player_id, first_name, last_name = players[side]
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT elo FROM atp_elo_current WHERE player_id = %s",
-                (player_id,),
-            )
-            row = cur.fetchone()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT elo FROM atp_elo_current WHERE player_id = ?",
+            (player_id,),
+        )
+        row = cur.fetchone()
         if row is None:
             return {
                 "player_id": player_id,
@@ -712,18 +718,20 @@ def main(argv):
         print('Usage: python scripts/tennis_tools.py form "Jannik Sinner"')
         print('Usage: python scripts/tennis_tools.py h2h "Jannik Sinner" "Carlos Alcaraz"')
         return 1
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        print("ERROR: DATABASE_URL is not set. Run: set -a; source .env; set +a")
+    from db import get_connection
+
+    try:
+        conn = get_connection()
+    except Exception as exc:  # noqa: BLE001 - missing SQLite file is a clean CLI error, not a crash
+        print(f"ERROR: could not open SQLite database: {exc}")
         return 1
-    import psycopg
 
     if argv[1] == "form":
         if len(argv) < 3:
             print('Usage: python scripts/tennis_tools.py form "Jannik Sinner"')
             return 1
         name = argv[2]
-        with psycopg.connect(database_url) as conn:
+        with conn:
             result = get_player_form(conn, name)
         if result is None:
             print(f"No player found for: {name}")
@@ -739,7 +747,7 @@ def main(argv):
         if len(argv) < 4:
             print('Usage: python scripts/tennis_tools.py h2h "Jannik Sinner" "Carlos Alcaraz"')
             return 1
-        with psycopg.connect(database_url) as conn:
+        with conn:
             result = get_head_to_head(conn, argv[2], argv[3])
         if result is None:
             print(f"No player found for: {argv[2]} or {argv[3]}")
@@ -755,7 +763,7 @@ def main(argv):
         if len(argv) < 3:
             print('Usage: python scripts/tennis_tools.py surface "Jannik Sinner"')
             return 1
-        with psycopg.connect(database_url) as conn:
+        with conn:
             result = get_player_surface_record(conn, argv[2])
         if result is None:
             print(f"No player found for: {argv[2]}")
@@ -772,7 +780,7 @@ def main(argv):
             print('Usage: python scripts/tennis_tools.py match "Jannik Sinner" "Carlos Alcaraz" "Hard"')
             return 1
         match_surface = argv[4] if len(argv) >= 5 else None
-        with psycopg.connect(database_url) as conn:
+        with conn:
             result = get_match_probability(conn, argv[2], argv[3], match_surface)
         if result is None:
             print(f"No player found for: {argv[2]} or {argv[3]}")
@@ -785,7 +793,7 @@ def main(argv):
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0
     name = argv[1]
-    with psycopg.connect(database_url) as conn:
+    with conn:
         result = get_player_elo(conn, name)
     if result is None:
         print(f"No player found for: {name}")
