@@ -4,20 +4,21 @@ Run from the project root ~/TSA:
     python -m pytest tests/test_tennis_tools.py -v
 
 Pure logic tests run everywhere, no database needed.
-The database smoke test runs only when DATABASE_URL is set,
+The database smoke test runs only when the SQLite database file exists,
 otherwise it is skipped. On the Mac, with .env loaded, it checks
 Sinner against the known Week 2 top list: overall Elo about
 2283.1, 457 matches. If that check fails, the Elo table is not
 the one Week 2 produced, and the tool must not be trusted yet.
 """
 
-import os
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from db import get_connection, get_sqlite_path
 
 from surface_elo import blended_elo
 from tennis_tools import SURFACES
@@ -43,13 +44,12 @@ def test_blended_many_surface_matches_approaches_surface():
     assert 1890 < result < 1900
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_sinner_overall_elo_matches_week2_top_list():
-    import psycopg
 
     from tennis_tools import get_player_elo
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         result = get_player_elo(conn, "Jannik Sinner")
     assert result is not None
     assert not result.get("ambiguous")
@@ -70,15 +70,14 @@ def test_sinner_overall_elo_matches_week2_top_list():
             assert low - 0.1 <= info["blended_elo"] <= high + 0.1
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_last_name_alone_is_ambiguous():
     # Real data has two Sinners: Jannik (206173) and Martin (101441).
     # Last name alone must NOT silently pick one.
-    import psycopg
 
     from tennis_tools import get_player_elo
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         result = get_player_elo(conn, "Sinner")
     assert result.get("ambiguous") is True
     names = [c["name"] for c in result["candidates"]]
@@ -86,13 +85,12 @@ def test_last_name_alone_is_ambiguous():
     assert "Martin Sinner" in names
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_unknown_player_returns_none():
-    import psycopg
 
     from tennis_tools import get_player_elo
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         assert get_player_elo(conn, "Not A Real Player XYZ") is None
 
 
@@ -110,15 +108,14 @@ def test_win_rate_helper():
     assert _games_pct(0, 0) is None
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_sinner_form_is_sane():
     # No exact values hardcoded: Sinner's current form is not known
     # in advance on this machine. Check structure and ranges only.
-    import psycopg
 
     from tennis_tools import get_player_form
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         result = get_player_form(conn, "Jannik Sinner")
     assert result is not None
     assert not result.get("ambiguous")
@@ -142,24 +139,22 @@ def test_sinner_form_is_sane():
         assert games["last52_games_pct"] is None
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_form_last_name_alone_is_ambiguous():
-    import psycopg
 
     from tennis_tools import get_player_form
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         result = get_player_form(conn, "Sinner")
     assert result.get("ambiguous") is True
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_form_unknown_player_returns_none():
-    import psycopg
 
     from tennis_tools import get_player_form
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         assert get_player_form(conn, "Not A Real Player XYZ") is None
 
 
@@ -180,15 +175,14 @@ def test_h2h_summary_helper():
     assert result["by_surface"]["Unknown"] == {"total": 1, "wins_a": 1, "wins_b": 0}
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_sinner_alcaraz_h2h_is_sane():
     # No exact count hardcoded: the Sinner-Alcaraz count is not known
     # in advance on this machine. Check structure and totals only.
-    import psycopg
 
     from tennis_tools import get_head_to_head
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         result = get_head_to_head(conn, "Jannik Sinner", "Carlos Alcaraz")
     assert result is not None
     assert not result.get("ambiguous")
@@ -200,25 +194,23 @@ def test_sinner_alcaraz_h2h_is_sane():
         assert meeting["winner"] in (result["player_a"]["name"], result["player_b"]["name"])
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_h2h_ambiguous_side():
-    import psycopg
 
     from tennis_tools import get_head_to_head
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         result = get_head_to_head(conn, "Sinner", "Carlos Alcaraz")
     assert result.get("ambiguous") is True
     assert result["side"] == "a"
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_h2h_unknown_returns_none():
-    import psycopg
 
     from tennis_tools import get_head_to_head
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         assert get_head_to_head(conn, "Jannik Sinner", "Not A Real Player XYZ") is None
 
 
@@ -227,15 +219,14 @@ def test_h2h_unknown_returns_none():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_sinner_retirement_descriptor_is_consistent():
     # No exact RET count hardcoded: Sinner's retirement history is
     # not known in advance on this machine. Check consistency only.
-    import psycopg
 
     from tennis_tools import get_player_form
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         result = get_player_form(conn, "Jannik Sinner")
     ret = result["retirement"]
     assert ret["retirements_last10"] <= 10
@@ -270,16 +261,15 @@ def test_win_pct_helper():
     assert _win_pct(0, 0) is None
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_sinner_surface_record_sums_to_total_matches():
     # Sinner's total matches are known from Tool 1: 457.
     # Per-surface totals must sum to that, otherwise a surface
     # was dropped or double-counted.
-    import psycopg
 
     from tennis_tools import get_player_surface_record
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         result = get_player_surface_record(conn, "Jannik Sinner")
     assert result is not None
     assert not result.get("ambiguous")
@@ -291,24 +281,22 @@ def test_sinner_surface_record_sums_to_total_matches():
         assert 0.0 <= info["win_pct"] <= 1.0
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_surface_ambiguous():
-    import psycopg
 
     from tennis_tools import get_player_surface_record
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         result = get_player_surface_record(conn, "Sinner")
     assert result.get("ambiguous") is True
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_surface_unknown_returns_none():
-    import psycopg
 
     from tennis_tools import get_player_surface_record
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         assert get_player_surface_record(conn, "Not A Real Player XYZ") is None
 
 
@@ -330,13 +318,12 @@ def test_calibration_helper():
     assert calibrated_prob(0.4) < 0.5
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_sinner_alcaraz_hard_probability():
-    import psycopg
 
     from tennis_tools import get_match_probability
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         result = get_match_probability(conn, "Jannik Sinner", "Carlos Alcaraz", "Hard")
     assert result is not None
     assert not result.get("ambiguous")
@@ -350,28 +337,26 @@ def test_sinner_alcaraz_hard_probability():
     assert result["favorite"] in ("Jannik Sinner", "Carlos Alcaraz")
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_sinner_alcaraz_overall_probability():
     # Overall only: Sinner 2283.1 vs Alcaraz 2176.7, diff 106.4.
     # Blended prob about 0.6485, calibrated about 0.6201.
-    import psycopg
 
     from tennis_tools import get_match_probability
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         result = get_match_probability(conn, "Jannik Sinner", "Carlos Alcaraz", None)
     assert abs(result["prob_a_blended"] - 0.6485) < 0.001
     assert abs(result["prob_a_calibrated"] - 0.6201) < 0.001
     assert result["favorite"] == "Jannik Sinner"
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_match_ambiguous_and_unknown():
-    import psycopg
 
     from tennis_tools import get_match_probability
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         result = get_match_probability(conn, "Sinner", "Carlos Alcaraz", "Hard")
         assert result.get("ambiguous") is True
         assert result["side"] == "a"

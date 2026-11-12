@@ -5,10 +5,10 @@ Run from the project root ~/TSA:
 
 Pure tests run everywhere, no database, no MCP SDK, and no real
 LLM call. They test the tool name list, JSON error handling when
-DATABASE_URL is missing, and the scouting report implementation
+the SQLite database file cannot be opened, and the scouting report implementation
 with a fake graph runner. The database tool tests run only when
-DATABASE_URL is set, otherwise they are skipped. On the Mac, with
-.env loaded, they run the five deterministic tools against the
+the SQLite database file exists, otherwise they are skipped. With
+the SQLite database file present, they run the five deterministic tools against the
 real database for Sinner vs Alcaraz Hard, and check the known
 Step 2 numbers, with no LLM call. A real MCP Inspector test is
 a manual run on the Mac, with the SDK installed, and it must
@@ -26,6 +26,8 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from db import get_connection, get_sqlite_path
 
 from mcp_server import (
     TOOL_NAMES,
@@ -45,13 +47,19 @@ def test_tool_names_are_six_expected_tools():
     )
 
 
-def test_elo_tool_without_database_url_returns_error_json_not_crash():
-    old = os.environ.pop("DATABASE_URL", None)
+def test_elo_tool_without_database_returns_error_json_not_crash(tmp_path):
+    # SQLite equivalent of the old no-DATABASE_URL test: point SQLITE_PATH
+    # at a file inside a directory that does not exist, so sqlite3.connect
+    # raises OperationalError. The tool must return an error JSON, not crash.
+    old = os.environ.get("SQLITE_PATH")
+    os.environ["SQLITE_PATH"] = str(tmp_path / "no_such_dir" / "tsa.db")
     try:
         payload = json.loads(get_player_elo_tool("Jannik Sinner"))
     finally:
         if old is not None:
-            os.environ["DATABASE_URL"] = old
+            os.environ["SQLITE_PATH"] = old
+        else:
+            os.environ.pop("SQLITE_PATH", None)
     assert "error" in payload
     assert payload["error"].startswith("database_connection_failed")
 
@@ -97,7 +105,7 @@ def test_scouting_report_impl_error_state_returns_error_without_final_text():
     assert "final_text" not in payload
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_db_elo_tool_sinner():
     import json as _json
 
@@ -109,7 +117,7 @@ def test_db_elo_tool_sinner():
     assert payload["matches_played"] == 457
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_db_form_tool_sinner():
     import json as _json
 
@@ -120,7 +128,7 @@ def test_db_form_tool_sinner():
     assert payload["win_form"]["last10_pct"] == 0.9 or str(payload["win_form"]["last10_pct"]) == "0.9000"
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_db_h2h_tool_sinner_alcaraz():
     import json as _json
 
@@ -133,7 +141,7 @@ def test_db_h2h_tool_sinner_alcaraz():
     assert payload["wins_b"] == 10
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_db_surface_tool_sinner():
     import json as _json
 
@@ -145,7 +153,7 @@ def test_db_surface_tool_sinner():
     assert payload["by_surface"]["Hard"]["losses"] == 57
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_db_prob_tool_sinner_alcaraz_hard():
     import json as _json
 

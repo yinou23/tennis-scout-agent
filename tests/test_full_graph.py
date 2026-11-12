@@ -8,7 +8,7 @@ LLM API call. They inject fake llm_caller, fake planner_with_source,
 and fake writer functions. A fake planner that returns a correct
 plan proves the graph plumbing and the planner_source labelling,
 not LLM intelligence. The database graph tests run only when
-DATABASE_URL is set, otherwise they are skipped. On the Mac, with
+the SQLite database file exists, otherwise they are skipped. On the Mac, with
 .env loaded, they run the full graph with a fake planner and a
 fake writer (not a real API call) for Sinner vs Alcaraz Hard, and
 check the known Step 2 numbers, planner_source, and verifier ok.
@@ -26,6 +26,8 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from db import get_connection, get_sqlite_path
 
 from full_graph import plan_with_llm_graph, run_full_graph
 
@@ -195,13 +197,12 @@ def test_full_graph_non_match_planner_returns_error_not_report():
     assert "0.6378" not in final.get("final_text", "") or "ERROR" in final.get("final_text", "")
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_full_graph_hard_end_to_end_with_fake_planner_and_writer():
-    import psycopg
 
     from full_graph import run_full_graph
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         final = run_full_graph(
             conn,
             "Jannik Sinner vs Carlos Alcaraz Hard",

@@ -6,7 +6,7 @@ Run from the project root ~/TSA:
 Pure verifier tests run everywhere, no database needed. They use
 small hand-built reports, so they check the verifier logic itself,
 not the database.
-The database end-to-end test runs only when DATABASE_URL is set,
+The database end-to-end test runs only when the SQLite database file exists,
 otherwise it is skipped. On the Mac, with .env loaded, it asks for
 Sinner vs Alcaraz Hard and checks the known Week 3 numbers:
 favorite Jannik Sinner, calibrated 0.6378, blended 0.6698, surface
@@ -14,13 +14,14 @@ tag present, calibration tag present, verifier ok. If that check
 fails, the report builder must not be trusted yet.
 """
 
-import os
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from db import get_connection, get_sqlite_path
 
 from scout_report import detect_language, verify_scout_report
 
@@ -118,13 +119,12 @@ def test_verifier_passes_overall_only_report_without_surface_tag():
     assert check["ok"] is True
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_sinner_alcaraz_hard_report_end_to_end():
-    import psycopg
 
     from scout_report import build_scout_report
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         report = build_scout_report(conn, "Jannik Sinner", "Carlos Alcaraz", "Hard")
     assert "error" not in report
     assert report["favorite"] == "Jannik Sinner"
@@ -145,13 +145,12 @@ def test_sinner_alcaraz_hard_report_end_to_end():
     assert check["ok"] is True, check
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_sinner_alcaraz_overall_only_report_has_no_surface_tag():
-    import psycopg
 
     from scout_report import build_scout_report, verify_scout_report
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         report = build_scout_report(conn, "Jannik Sinner", "Carlos Alcaraz", None)
     assert "error" not in report
     assert report["surface_applied"] is False
@@ -161,13 +160,12 @@ def test_sinner_alcaraz_overall_only_report_has_no_surface_tag():
     assert check["ok"] is True, check
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_sinner_alcaraz_hard_chinese_report():
-    import psycopg
 
     from scout_report import build_scout_report, verify_scout_report
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         report = build_scout_report(
             conn,
             "Jannik Sinner",
@@ -183,12 +181,11 @@ def test_sinner_alcaraz_hard_chinese_report():
     assert check["ok"] is True, check
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_unknown_player_returns_error_not_report():
-    import psycopg
 
     from scout_report import build_scout_report
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         report = build_scout_report(conn, "Not A Real Player XYZ", "Carlos Alcaraz", "Hard")
     assert "error" in report

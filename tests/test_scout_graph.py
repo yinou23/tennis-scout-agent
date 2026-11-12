@@ -7,7 +7,7 @@ Pure tests run everywhere, no database and no LangGraph needed.
 They inject fake planner, report builder, and verifier functions
 and force the sequential graph path, so they check node logic,
 not the LangGraph install.
-The database end-to-end test runs only when DATABASE_URL is set,
+The database end-to-end test runs only when the SQLite database file exists,
 otherwise it is skipped. On the Mac, with .env loaded, it runs the
 real graph for Sinner vs Alcaraz Hard and checks the known Week 4
 Step 2 numbers: favorite Jannik Sinner, calibrated 0.6378, blended
@@ -17,13 +17,14 @@ test prints used_langgraph in the failure message so a fallback
 pass is not mistaken for a LangGraph pass.
 """
 
-import os
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from db import get_connection, get_sqlite_path
 
 from scout_graph import build_scout_graph, run_scout_graph
 
@@ -157,13 +158,12 @@ def test_build_graph_fallback_when_langgraph_missing():
         pytest.skip("langgraph installed, fallback not exercised here")
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_graph_sinner_alcaraz_hard_end_to_end():
-    import psycopg
 
     from scout_graph import run_scout_graph
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         final = run_scout_graph(conn, "Jannik Sinner vs Carlos Alcaraz Hard")
     assert final.get("error") is None, final
     assert final["verification"]["ok"] is True, final["verification"]
@@ -175,13 +175,12 @@ def test_graph_sinner_alcaraz_hard_end_to_end():
     assert final["_used_langgraph"] is True, "expected real LangGraph on Mac, got fallback"
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_graph_chinese_hard_end_to_end():
-    import psycopg
 
     from scout_graph import run_scout_graph
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         final = run_scout_graph(conn, "Jannik Sinner 对 Carlos Alcaraz 硬地谁是热门")
     assert final.get("error") is None, final
     assert "场地修正" in final["final_text"]

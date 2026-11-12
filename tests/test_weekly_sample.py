@@ -9,7 +9,7 @@ the real verifier checks the full templated report text, and
 these tests are about the sample wrapper, metadata, sources,
 tool trace, cost, latency, and coverage, not about the real
 verifier, which is already tested in test_scout_report.py.
-The database test runs only when DATABASE_URL is set,
+The database test runs only when the SQLite database file exists,
 otherwise it is skipped. On the Mac, with .env loaded, it
 generates a real sample for Jannik Sinner vs Carlos Alcaraz
 Hard and checks the calibrated and blended probabilities,
@@ -20,13 +20,14 @@ print the full sample and write samples/weekly_sample.md,
 otherwise it is not a clean Week 7 Step 1 pass.
 """
 
-import os
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from db import get_connection, get_sqlite_path
 
 import weekly_sample
 
@@ -80,11 +81,10 @@ def test_build_sample_markdown_fails_when_verification_not_ok(monkeypatch):
         weekly_sample.build_sample_markdown(_fake_report(), "Jannik Sinner", "Carlos Alcaraz", "Hard", 1.0)
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_generate_sample_sinner_alcaraz_hard_on_real_db():
-    import psycopg
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         markdown, report, latency_ms = weekly_sample.generate_sample(conn, "Jannik Sinner", "Carlos Alcaraz", "Hard")
     assert "Jannik Sinner vs Carlos Alcaraz" in markdown
     assert "0.6378" in markdown

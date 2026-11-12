@@ -4,20 +4,21 @@ Run from the project root ~/TSA:
     python -m pytest tests/test_planner.py -v
 
 Pure parser tests run everywhere, no database needed.
-The database end-to-end test runs only when DATABASE_URL is set,
+The database end-to-end test runs only when the SQLite database file exists,
 otherwise it is skipped. On the Mac, it asks the Sinner vs Alcaraz
 Hard question end-to-end and checks the answer contains the
 Tool 5 numbers (favorite Jannik Sinner, calibrated 0.6378),
 proving the answer came from the tools, not from a hardcoded string.
 """
 
-import os
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from db import get_connection, get_sqlite_path
 
 from planner import build_answer, execute_plan, parse_question
 
@@ -82,15 +83,14 @@ def test_build_answer_no_template():
     assert "Jannik Sinner vs Carlos Alcaraz Hard" in answer
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_end_to_end_sinner_alcaraz_hard():
-    import psycopg
 
     from planner import parse_question as pq
 
     plan = pq("Jannik Sinner vs Carlos Alcaraz Hard")
     assert plan["tool"] == "match"
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         outputs = execute_plan(conn, plan)
     answer = build_answer(plan, outputs)
     # Tool 5 numbers, verified in the previous step: favorite Sinner,

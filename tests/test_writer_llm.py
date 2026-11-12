@@ -7,7 +7,7 @@ Pure tests run everywhere, no database, no LangGraph, and no real
 LLM API call. They inject fake api_caller and fake writer
 functions. A fake writer that returns a correct rewrite proves
 the graph plumbing and the verifier, not LLM intelligence.
-The database graph tests run only when DATABASE_URL is set,
+The database graph tests run only when the SQLite database file exists,
 otherwise they are skipped. On the Mac, with .env loaded, they
 run the LLM graph with a fake writer (not a real API call) for
 Sinner vs Alcaraz Hard, and check the known Step 2 numbers and
@@ -18,13 +18,14 @@ demo is NOT in this test file, on purpose, so tests do not burn
 quota and do not flake on a 503.
 """
 
-import os
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from db import get_connection, get_sqlite_path
 
 from writer_llm import (
     build_writer_prompt,
@@ -215,13 +216,12 @@ def test_llm_graph_verifier_fail_blocks_llm_text():
     assert "verification failed" in final.get("final_text", "")
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_llm_graph_hard_end_to_end_with_fake_writer():
-    import psycopg
 
     from writer_llm import run_llm_graph
 
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         final = run_llm_graph(
             conn,
             "Jannik Sinner vs Carlos Alcaraz Hard",

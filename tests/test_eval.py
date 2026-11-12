@@ -6,7 +6,7 @@ Run from the project root ~/TSA:
 Pure tests run everywhere, no database, no LLM call. They test
 the check logic directly with fake tool outputs, and the failure
 log writing with a deliberately wrong case in a temporary file.
-The full eval set test runs only when DATABASE_URL is set,
+The full eval set test runs only when the SQLite database file exists,
 otherwise it is skipped. On the Mac, with .env loaded, it runs
 all 11 cases in eval/cases.jsonl against the real database and
 checks pass rate 1.0, with no failures. A real eval run is a
@@ -19,13 +19,14 @@ depend on a manual run.
 """
 
 import json
-import os
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from db import get_connection, get_sqlite_path
 
 from eval import _check, load_cases, run_case, run_eval
 
@@ -95,15 +96,14 @@ def test_run_eval_empty_failures_file_when_all_pass(tmp_path):
     assert failures_path.read_text(encoding="utf-8") == ""
 
 
-@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_full_eval_set_passes_on_real_db():
-    import psycopg
 
     from eval import load_cases, run_eval
 
     cases_path = Path(__file__).resolve().parents[1] / "eval" / "cases.jsonl"
     cases = load_cases(str(cases_path))
-    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+    with get_connection() as conn:
         summary = run_eval(conn, cases, failures_path=None)
     assert summary["total"] == len(cases), summary
     assert summary["passed"] == len(cases), summary
