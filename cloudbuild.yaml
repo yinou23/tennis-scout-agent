@@ -5,8 +5,19 @@
 # Required APIs: Cloud Build, Artifact Registry, Cloud Run.
 # The Gemini API key is set as an environment variable on the Cloud Run
 # service by the user in the GCP console (it is never in this repo).
+#
+# NOTE: data/tsa.db (~172 MB) is git-ignored (over GitHub's 100 MB file
+# limit), so it is shipped as a GitHub Release asset (tag data-v1) and
+# downloaded by the first build step below. To refresh the data, upload a
+# new data/tsa.db to the data-v1 release (or a new tag) and update the URL.
 
 steps:
+  # Download the SQLite database from the GitHub Release asset.
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - 'mkdir -p data && curl -L -o data/tsa.db https://github.com/yinou23/tennis-scout-agent/releases/download/data-v1/tsa.db && ls -lh data/tsa.db'
   # Build the Docker image (Dockerfile at repo root).
   - name: 'gcr.io/cloud-builders/docker'
     args:
