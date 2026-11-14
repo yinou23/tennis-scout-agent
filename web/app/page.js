@@ -969,7 +969,7 @@ export default function Home() {
       )}
 
       <footer className="site-footer">
-        <a href="https://github.com/yinou23/tennis-scout-agent" target="_blank" rel="noreferrer">yinou</a>
+        <a href="https://github.com/yinou23/tennis-scout-agent" target="_blank" rel="noreferrer">yinou · GitHub</a>
       </footer>
     </main>
   );
