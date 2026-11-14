@@ -957,6 +957,7 @@ export default function Home() {
           <p>{t.model}: {report.llm_model}</p>
           <p>{t.langGraph}: {report.graph_used_langgraph ? t.yes : t.no}</p>
           <p>{t.datasetLine}</p>
+          <p>{t.footnote}</p>
           {report.verification && (
             <ul>
               {verificationItems(report.verification, t).map((item) => (
@@ -966,8 +967,6 @@ export default function Home() {
           )}
         </details>
       )}
-
-      <p className="footnote">{t.footnote}</p>
     </main>
   );
 }
