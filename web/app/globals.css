@@ -46,9 +46,9 @@ section.card p, section.card li { color: #1f2937; line-height: 1.65; }
 section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .dashboard-grid { display: grid; gap: 20px; grid-template-columns: 1.6fr 1fr; margin-top: 20px; }
 .dashboard-grid section.card { margin-top: 0; }
-.gauge-wrap { position: relative; text-align: center; }
+.gauge-wrap { background: linear-gradient(90deg, rgba(247,247,245,0) 0, #f7f7f5 28px, #f7f7f5 calc(100% - 28px), rgba(247,247,245,0) 100%); margin: 0 -28px; position: relative; text-align: center; z-index: 1; }
 .gauge-number { font-size: 28px; font-weight: 700; left: 50%; position: absolute; top: 56%; transform: translate(-50%, -50%); z-index: 5; }
-.matchup-title { align-items: center; display: flex; flex-direction: column; gap: 4px; justify-content: center; text-align: center; }
+.matchup-title { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; text-align: center; }
 .surface-chip { border: 1px solid #d1d5db; border-radius: 999px; color: #374151; font-size: 12px; font-weight: 600; padding: 3px 8px; }
 .gauge-zone { align-items: center; display: grid; gap: 8px; grid-template-columns: auto 1fr auto; }
 .gauge-zone .avatar { margin: 0; }
@@ -61,7 +61,7 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .lead { color: #15803d; }
 .avatar { border-radius: 50%; display: block; height: 72px; margin: 0 auto 6px; object-fit: cover; width: 72px; }
 .avatar-flip { transform: scaleX(-1); }
-.avatar-lg { -webkit-mask-image: radial-gradient(circle closest-side, #000 78%, transparent 96%); height: 176px; mask-image: radial-gradient(circle closest-side, #000 78%, transparent 96%); width: 176px; }
+.avatar-lg { -webkit-mask-image: radial-gradient(circle closest-side, #000 72%, transparent 95%); height: 176px; mask-image: radial-gradient(circle closest-side, #000 72%, transparent 95%); width: 176px; }
 .matches { margin-top: 20px; }
 .matches-note { color: #94a3b8; font-size: 14px; margin: 4px 0 0; }
 .matches-grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }

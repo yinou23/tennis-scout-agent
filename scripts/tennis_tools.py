@@ -180,6 +180,12 @@ def get_player_elo(conn, name):
 # - last10 win form: win rate in the player's last 10 main-tour
 #   matches, regardless of time gap. If fewer than 10 matches exist,
 #   n is that total, pct is wins / n. If no matches, pct is None.
+# - recent2m win form: win rate in matches with tourney_date in
+#   [anchor - 2 months, anchor], most recent first, capped at 10.
+#   If more than 10 matches fall in the window, only the last 10
+#   count. If none, pct is None. This is the "recent win rate"
+#   shown on the dashboard; last10 is kept for the report's other
+#   references and for tests.
 # - last52 win form: win rate in matches with tourney_date in
 #   [anchor - 365 days, anchor]. If none, pct is None.
 # - retirement: RET losses only (score contains a RET token, loser
@@ -188,7 +194,8 @@ def get_player_elo(conn, name):
 #   a diagnosis of injury, and it does not change any probability.
 # - last10 / last52 games form: total games won / total games
 #   played in complete matches only (atp_match_games.is_complete),
-#   incomplete matches skipped. Same windows as win form.
+#   incomplete matches skipped. Same windows as win form, plus the
+#   recent2m games window, capped at 10 like the win form.
 # Limitation, same as Week 2: tourney_date is tournament start,
 # not exact match day, so the 52-week window is accurate to within
 # a tournament length. Form is a descriptor, not a probability
@@ -212,8 +219,8 @@ def get_player_form(conn, name):
 
     Returns None if no player matches.
     Returns {"ambiguous": True, "candidates": [...]} if more than one matches.
-    Otherwise returns a dict with last10 and last52 for both win %
-    and games %, plus the anchor date used for last52.
+    Otherwise returns a dict with last10, recent2m, and last52 for
+    both win % and games %, plus the anchor date used for last52.
     """
     candidates = find_players(conn, name)
     if not candidates:
@@ -254,6 +261,21 @@ def get_player_form(conn, name):
         (player_id, player_id, anchor, anchor),
     )
     last52_winners = [row[0] for row in cur.fetchall()]
+    # Recent 2 months: matches in [anchor - 2 months, anchor],
+    # most recent first, capped at 10.
+    cur.execute(
+        """
+        SELECT winner_id
+        FROM atp_matches
+        WHERE (winner_id = ? OR loser_id = ?)
+          AND tourney_date >= date(?, '-2 months')
+          AND tourney_date <= ?
+        ORDER BY tourney_date DESC, tourney_id DESC, match_num DESC
+        LIMIT 10
+        """,
+        (player_id, player_id, anchor, anchor),
+    )
+    recent2m_winners = [row[0] for row in cur.fetchall()]
     # Games form: complete matches only, joined to atp_match_games.
     cur.execute(
         """
@@ -279,6 +301,22 @@ def get_player_form(conn, name):
         (player_id, player_id, anchor, anchor),
     )
     last52_games_rows = cur.fetchall()
+    # Games form, recent 2 months: complete matches only, same
+    # window as the win form, capped at 10.
+    cur.execute(
+        """
+        SELECT m.winner_id, g.winner_games, g.loser_games
+        FROM atp_matches m JOIN atp_match_games g
+          ON g.tourney_id = m.tourney_id AND g.match_num = m.match_num
+        WHERE (m.winner_id = ? OR m.loser_id = ?) AND g.is_complete
+          AND m.tourney_date >= date(?, '-2 months')
+          AND m.tourney_date <= ?
+        ORDER BY m.tourney_date DESC, m.tourney_id DESC, m.match_num DESC
+        LIMIT 10
+        """,
+        (player_id, player_id, anchor, anchor),
+    )
+    recent2m_games_rows = cur.fetchall()
 
     def _games_summary(rows):
         games_won = 0
@@ -382,9 +420,12 @@ def get_player_form(conn, name):
 
     w10_n = len(last10_winners)
     w10_wins = sum(1 for w in last10_winners if w == player_id)
+    w2m_n = len(recent2m_winners)
+    w2m_wins = sum(1 for w in recent2m_winners if w == player_id)
     w52_n = len(last52_winners)
     w52_wins = sum(1 for w in last52_winners if w == player_id)
     g10_won, g10_total = _games_summary(last10_games_rows)
+    g2m_won, g2m_total = _games_summary(recent2m_games_rows)
     g52_won, g52_total = _games_summary(last52_games_rows)
     return {
         "player_id": player_id,
@@ -394,6 +435,9 @@ def get_player_form(conn, name):
             "last10_pct": _win_rate(w10_wins, w10_n),
             "last10_wins": w10_wins,
             "last10_n": w10_n,
+            "recent2m_pct": _win_rate(w2m_wins, w2m_n),
+            "recent2m_wins": w2m_wins,
+            "recent2m_n": w2m_n,
             "last52_pct": _win_rate(w52_wins, w52_n),
             "last52_wins": w52_wins,
             "last52_n": w52_n,
@@ -404,6 +448,10 @@ def get_player_form(conn, name):
             "last10_matches": len(last10_games_rows),
             "last10_games_won": g10_won,
             "last10_games_total": g10_total,
+            "recent2m_games_pct": _games_pct(g2m_won, g2m_total),
+            "recent2m_matches": len(recent2m_games_rows),
+            "recent2m_games_won": g2m_won,
+            "recent2m_games_total": g2m_total,
             "last52_games_pct": _games_pct(g52_won, g52_total),
             "last52_matches": len(last52_games_rows),
             "last52_games_won": g52_won,

@@ -97,7 +97,7 @@ SURFACE_ZH = {
 # verifier can catch an invented number. In particular, tool names
 # are written without numbers, section headings have no numbers,
 # and K, initial Elo, and other Week 2 internals are not printed.
-ALLOWED_PARAMETERS = {"10", "52", "100", "0.8", "2026", "05", "25"}
+ALLOWED_PARAMETERS = {"2", "10", "52", "100", "0.8", "2026", "05", "25"}
 
 _NUMBER_RE = re.compile(r"\d+\.\d+|\d+")
 
@@ -294,24 +294,24 @@ def build_scout_report(conn, player_a, player_b, surface=None, question=None):
         win = form["win_form"]
         games = form["games_form"]
         ret = form["retirement"]
-        win10 = _fmt_pct(win["last10_pct"])
+        win2m = _fmt_pct(win["recent2m_pct"])
         win52 = _fmt_pct(win["last52_pct"])
-        if win10 is not None:
-            add_value(win10)
+        if win2m is not None:
+            add_value(win2m)
         if win52 is not None:
             add_value(win52)
-        add_value(str(win["last10_wins"]))
-        add_value(str(win["last10_n"]))
+        add_value(str(win["recent2m_wins"]))
+        add_value(str(win["recent2m_n"]))
         add_value(str(win["last52_wins"]))
         add_value(str(win["last52_n"]))
-        games10 = _fmt_pct(games["last10_games_pct"])
+        games2m = _fmt_pct(games["recent2m_games_pct"])
         games52 = _fmt_pct(games["last52_games_pct"])
-        if games10 is not None:
-            add_value(games10)
+        if games2m is not None:
+            add_value(games2m)
         if games52 is not None:
             add_value(games52)
-        add_value(str(games["last10_games_won"]))
-        add_value(str(games["last10_games_total"]))
+        add_value(str(games["recent2m_games_won"]))
+        add_value(str(games["recent2m_games_total"]))
         add_value(str(games["last52_games_won"]))
         add_value(str(games["last52_games_total"]))
         if ret["last_retirement_date"] is not None:
@@ -329,10 +329,10 @@ def build_scout_report(conn, player_a, player_b, surface=None, question=None):
         add_value(str(ret["retirements_total"]))
         return {
             "win": win,
-            "win10": win10,
+            "win2m": win2m,
             "win52": win52,
             "games": games,
-            "games10": games10,
+            "games2m": games2m,
             "games52": games52,
             "retirement": ret,
         }
@@ -404,16 +404,16 @@ def build_scout_report(conn, player_a, player_b, surface=None, question=None):
             win = ft["win"]
             games = ft["games"]
             ret = ft["retirement"]
-            win10_text = f"最近 10 场胜率 {ft['win10']}（{win['last10_wins']} 胜 {win['last10_n']} 场）" if ft["win10"] is not None else "最近 10 场无胜率"
+            win2m_text = f"最近 2 个月胜率 {ft['win2m']}（{win['recent2m_wins']} 胜 {win['recent2m_n']} 场）" if ft["win2m"] is not None else "最近 2 个月没有比赛"
             win52_text = f"最近 52 周胜率 {ft['win52']}（{win['last52_wins']} 胜 {win['last52_n']} 场）" if ft["win52"] is not None else "最近 52 周无胜率"
-            games10_text = f"局数最近 10 场 {ft['games10']}（{games['last10_games_won']} 局，共 {games['last10_games_total']} 局）" if ft["games10"] is not None else "局数最近 10 场无完整比赛"
+            games2m_text = f"局数最近 2 个月 {ft['games2m']}（{games['recent2m_games_won']} 局，共 {games['recent2m_games_total']} 局）" if ft["games2m"] is not None else "局数最近 2 个月无完整比赛"
             games52_text = f"局数最近 52 周 {ft['games52']}（{games['last52_games_won']} 局，共 {games['last52_games_total']} 局）" if ft["games52"] is not None else "局数最近 52 周无完整比赛"
             if ret["last_retirement_date"] is not None:
                 ret_text = f"最近一次中途退赛 {ret['last_retirement_date']}，距数据截至日 {ret['days_since_last_retirement']} 天，之后 {ret['matches_since_last_retirement']} 场"
             else:
                 ret_text = "记录里没有中途退赛"
             lines.append(
-                f"{name}：{win10_text}，{win52_text}；{games10_text}，{games52_text}；{ret_text}；最近 10 场退赛 {ret['retirements_last10']} 次，最近 52 周退赛 {ret['retirements_last52']} 次，生涯退赛 {ret['retirements_total']} 次。"
+                f"{name}：{win2m_text}，{win52_text}；{games2m_text}，{games52_text}；{ret_text}；最近 10 场退赛 {ret['retirements_last10']} 次，最近 52 周退赛 {ret['retirements_last52']} 次，生涯退赛 {ret['retirements_total']} 次。"
             )
         lines.append("交手（只做描述，不进概率）：")
         if surface is not None and h2h_surface_entry is not None:
@@ -462,16 +462,16 @@ def build_scout_report(conn, player_a, player_b, surface=None, question=None):
             win = ft["win"]
             games = ft["games"]
             ret = ft["retirement"]
-            win10_text = f"last 10 win rate {ft['win10']} ({win['last10_wins']} wins in {win['last10_n']} matches)" if ft["win10"] is not None else "no last 10 win rate"
+            win2m_text = f"last 2 months win rate {ft['win2m']} ({win['recent2m_wins']} wins in {win['recent2m_n']} matches)" if ft["win2m"] is not None else "no matches in the last 2 months"
             win52_text = f"last 52 weeks win rate {ft['win52']} ({win['last52_wins']} wins in {win['last52_n']} matches)" if ft["win52"] is not None else "no last 52 weeks win rate"
-            games10_text = f"games last 10 {ft['games10']} ({games['last10_games_won']} games won, {games['last10_games_total']} total)" if ft["games10"] is not None else "no complete games last 10"
+            games2m_text = f"games last 2 months {ft['games2m']} ({games['recent2m_games_won']} games won, {games['recent2m_games_total']} total)" if ft["games2m"] is not None else "no complete games last 2 months"
             games52_text = f"games last 52 weeks {ft['games52']} ({games['last52_games_won']} games won, {games['last52_games_total']} total)" if ft["games52"] is not None else "no complete games last 52 weeks"
             if ret["last_retirement_date"] is not None:
                 ret_text = f"last mid-match retirement {ret['last_retirement_date']}, {ret['days_since_last_retirement']} days before data as of, {ret['matches_since_last_retirement']} matches since"
             else:
                 ret_text = "no mid-match retirement in record"
             lines.append(
-                f"{name}: {win10_text}, {win52_text}; {games10_text}, {games52_text}; {ret_text}; retirements last 10: {ret['retirements_last10']}, last 52 weeks: {ret['retirements_last52']}, total: {ret['retirements_total']}."
+                f"{name}: {win2m_text}, {win52_text}; {games2m_text}, {games52_text}; {ret_text}; retirements last 10: {ret['retirements_last10']}, last 52 weeks: {ret['retirements_last52']}, total: {ret['retirements_total']}."
             )
         lines.append("Head-to-head (descriptor only, not a probability input):")
         if surface is not None and h2h_surface_entry is not None:

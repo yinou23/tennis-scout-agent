@@ -44,13 +44,13 @@ def _fake_report():
             "elo_a": {"name": "Jannik Sinner", "overall_elo": 2283.1, "matches_played": 457},
             "elo_b": {"name": "Carlos Alcaraz", "overall_elo": 2176.7, "matches_played": 371},
             "form_a": {
-                "win_form": {"last10_pct": 0.9, "last10_wins": 9, "last10_n": 10, "last52_pct": 0.9121, "last52_wins": 83, "last52_n": 91},
-                "games_form": {"last10_games_pct": 0.6273, "last10_games_won": 138, "last10_games_total": 220, "last52_games_pct": 0.635, "last52_games_won": 1298, "last52_games_total": 2044},
+                "win_form": {"last10_pct": 0.9, "last10_wins": 9, "last10_n": 10, "recent2m_pct": 0.9, "recent2m_wins": 9, "recent2m_n": 10, "last52_pct": 0.9121, "last52_wins": 83, "last52_n": 91},
+                "games_form": {"last10_games_pct": 0.6273, "last10_games_won": 138, "last10_games_total": 220, "recent2m_games_pct": 0.6273, "recent2m_games_won": 138, "recent2m_games_total": 220, "last52_games_pct": 0.635, "last52_games_won": 1298, "last52_games_total": 2044},
                 "retirement": {"last_retirement_date": "2025-10-01", "days_since_last_retirement": 236, "matches_since_last_retirement": 55, "retirements_last10": 0, "retirements_last52": 2, "retirements_total": 7},
             },
             "form_b": {
-                "win_form": {"last10_pct": 0.6, "last10_wins": 6, "last10_n": 10, "last52_pct": 0.8873, "last52_wins": 63, "last52_n": 71},
-                "games_form": {"last10_games_pct": 0.5742, "last10_games_won": 120, "last10_games_total": 209, "last52_games_pct": 0.5957, "last52_games_won": 1099, "last52_games_total": 1845},
+                "win_form": {"last10_pct": 0.6, "last10_wins": 6, "last10_n": 10, "recent2m_pct": 0.7143, "recent2m_wins": 5, "recent2m_n": 7, "last52_pct": 0.8873, "last52_wins": 63, "last52_n": 71},
+                "games_form": {"last10_games_pct": 0.5742, "last10_games_won": 120, "last10_games_total": 209, "recent2m_games_pct": 0.6239, "recent2m_games_won": 73, "recent2m_games_total": 117, "last52_games_pct": 0.5957, "last52_games_won": 1099, "last52_games_total": 1845},
                 "retirement": {"last_retirement_date": "2024-02-19", "days_since_last_retirement": 826, "matches_since_last_retirement": 164, "retirements_last10": 0, "retirements_last52": 0, "retirements_total": 3},
             },
             "record_a": {
@@ -103,12 +103,16 @@ def test_summary_form_per_player():
     summary = build_summary(_fake_report())
     form_a = summary["a"]["form"]
     assert form_a["win10"] == 0.9
+    assert form_a["win2m"] == 0.9
     assert form_a["win52"] == 0.9121
     assert form_a["win10_wins"] == 9
+    assert form_a["win2m_wins"] == 9
     assert form_a["win52_wins"] == 83
     assert form_a["games10"] == 0.6273
+    assert form_a["games2m"] == 0.6273
     assert form_a["games52"] == 0.635
     assert form_a["games10_won"] == 138
+    assert form_a["games2m_won"] == 138
     assert form_a["games52_won"] == 1298
     assert form_a["last_retirement_date"] == "2025-10-01"
     assert form_a["days_since_last_retirement"] == 236

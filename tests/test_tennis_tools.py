@@ -124,6 +124,9 @@ def test_sinner_form_is_sane():
     assert 1 <= win["last10_n"] <= 10
     assert 0.0 <= win["last10_pct"] <= 1.0
     assert win["last10_wins"] == round(win["last10_pct"] * win["last10_n"])
+    assert 1 <= win["recent2m_n"] <= 10
+    assert 0.0 <= win["recent2m_pct"] <= 1.0
+    assert win["recent2m_wins"] == round(win["recent2m_pct"] * win["recent2m_n"])
     assert win["last52_n"] >= 0
     if win["last52_n"] > 0:
         assert 0.0 <= win["last52_pct"] <= 1.0
@@ -133,6 +136,9 @@ def test_sinner_form_is_sane():
     assert 1 <= games["last10_matches"] <= 10
     assert 0.0 <= games["last10_games_pct"] <= 1.0
     assert games["last10_games_won"] <= games["last10_games_total"]
+    assert 1 <= games["recent2m_matches"] <= 10
+    assert 0.0 <= games["recent2m_games_pct"] <= 1.0
+    assert games["recent2m_games_won"] <= games["recent2m_games_total"]
     if games["last52_matches"] > 0:
         assert 0.0 <= games["last52_games_pct"] <= 1.0
     else:

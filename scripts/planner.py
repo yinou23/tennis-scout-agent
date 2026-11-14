@@ -255,9 +255,15 @@ def build_answer(plan, outputs, question=None):
         return f"{outputs['name']} overall Elo {outputs['overall_elo']}, {outputs['matches_played']} matches, last match {outputs['last_match_date']}. Data as of 2026-05-25."
     if plan["tool"] == "form":
         win = outputs["win_form"]
+        if win.get("recent2m_pct") is not None:
+            win2m_zh = f"最近 2 个月胜率 {win['recent2m_pct']}（{win['recent2m_wins']} 胜 {win['recent2m_n']} 场）"
+            win2m_en = f"last 2 months win rate {win['recent2m_pct']} ({win['recent2m_wins']} wins in {win['recent2m_n']} matches)"
+        else:
+            win2m_zh = "最近 2 个月没有比赛"
+            win2m_en = "no matches in the last 2 months"
         if zh:
-            return f"{outputs['name']} 近期状态：最近 10 场胜率 {win['last10_pct']}（{win['last10_wins']} 胜 {win['last10_n']} 场），最近 52 周胜率 {win['last52_pct']}（{win['last52_wins']} 胜 {win['last52_n']} 场）。数据截至 2026-05-25。"
-        return f"{outputs['name']} recent form: last 10 win rate {win['last10_pct']} ({win['last10_wins']} wins in {win['last10_n']} matches), last 52 weeks win rate {win['last52_pct']} ({win['last52_wins']} wins in {win['last52_n']} matches). Data as of 2026-05-25."
+            return f"{outputs['name']} 近期状态：{win2m_zh}，最近 52 周胜率 {win['last52_pct']}（{win['last52_wins']} 胜 {win['last52_n']} 场）。数据截至 2026-05-25。"
+        return f"{outputs['name']} recent form: {win2m_en}, last 52 weeks win rate {win['last52_pct']} ({win['last52_wins']} wins in {win['last52_n']} matches). Data as of 2026-05-25."
     if plan["tool"] == "surface":
         if zh:
             parts = ", ".join(f"{s} {v['wins']} 胜 {v['losses']} 负" for s, v in outputs["by_surface"].items())

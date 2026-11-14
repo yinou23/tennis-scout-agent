@@ -95,7 +95,7 @@ const STRINGS = {
     generate: "生成报告",
     generating: "生成中",
     dashboard: "概率仪表盘",
-    sideList: "数据一览",
+    sideList: "关键数据",
     favorite: "热门",
     probability: "概率",
     matchesLoading: "正在拉取赛程",
@@ -113,7 +113,7 @@ const STRINGS = {
     surfaceRecord: "战绩",
     surfaceRecordInfo: "该球员在这个场地上的胜率。",
     last10: "最近胜率",
-    last10Info: "最近 10 场比赛的胜率。",
+    last10Info: "最近 2 个月内的胜率；如果超过 10 场，只算最近 10 场。",
     h2h: "H2H",
     h2hInfo: "两人历史交手的胜负场次。",
     market: "市场概率",
@@ -167,7 +167,7 @@ const STRINGS = {
     generate: "Generate report",
     generating: "Generating",
     dashboard: "Probability gauge",
-    sideList: "At a glance",
+    sideList: "Key data",
     favorite: "Favorite",
     probability: "Probability",
     matchesLoading: "Loading matches",
@@ -185,7 +185,7 @@ const STRINGS = {
     surfaceRecord: "record",
     surfaceRecordInfo: "This player's win rate on this surface.",
     last10: "Recent win rate",
-    last10Info: "Win rate over the last 10 matches.",
+    last10Info: "Win rate in the last 2 months; if more than 10 matches, only the last 10 count.",
     h2h: "H2H",
     h2hInfo: "Head-to-head wins for each side.",
     market: "Market probabilities",
@@ -321,6 +321,7 @@ function normalizePlayer(raw, fallbackName) {
     last10_win_rate: asText(pick(win, ["last10_pct", "last10_win_rate", "win10_pct", "win10", "last10"])) || asText(pick(raw, ["last10_pct", "last10_win_rate", "win10"])),
     last10_wins: asText(pick(win, ["last10_wins", "win10_wins"])),
     last10_n: asText(pick(win, ["last10_n", "win10_n"])),
+    recent_win_rate: asText(pick(win, ["recent2m_pct", "recent2m_win_rate", "win2m_pct", "win2m"])),
     last52_win_rate: asText(pick(win, ["last52_pct", "last52_win_rate", "win52_pct", "win52"])),
   };
 }
@@ -485,7 +486,7 @@ function Tip({ text, children }) {
 }
 
 export default function Home() {
-  const [lang, setLang] = useState("zh");
+  const [lang, setLang] = useState("en");
   const t = STRINGS[lang];
   const [playerA, setPlayerA] = useState("Jannik Sinner");
   const [playerB, setPlayerB] = useState("Carlos Alcaraz");
@@ -506,7 +507,12 @@ export default function Home() {
   // Upcoming-matches strip: fetched once when the page loads,
   // from the live Polymarket feed, never from the preview's
   // stale snapshot. A tap loads that matchup into the form
-  // and runs the report.
+  // and runs the report. The initial page is the soonest
+  // upcoming match from this feed when there is one, else the
+  // Sinner / Hard / Alcaraz default; it generates at once so
+  // the page opens on data instead of an empty dashboard.
+  // Matches carry no surface, so the surface stays on the
+  // default (Hard), same as tapping a fixture.
   useEffect(() => {
     setMatches({ status: "loading", rows: [] });
     fetch(`${API_URL}/matches`)
@@ -514,8 +520,22 @@ export default function Home() {
         if (!res.ok) throw new Error(`matches ${res.status}`);
         return res.json();
       })
-      .then((data) => setMatches({ status: "done", rows: Array.isArray(data.matches) ? data.matches : [] }))
-      .catch(() => setMatches({ status: "unavailable", rows: [] }));
+      .then((data) => {
+        const rows = Array.isArray(data.matches) ? data.matches : [];
+        setMatches({ status: "done", rows });
+        if (rows.length > 0) {
+          setPlayerA(rows[0].player_a);
+          setPlayerB(rows[0].player_b);
+          setAdvanced("");
+          onGenerate({ a: rows[0].player_a, b: rows[0].player_b }, { scroll: false });
+        } else {
+          onGenerate(null, { scroll: false });
+        }
+      })
+      .catch(() => {
+        setMatches({ status: "unavailable", rows: [] });
+        onGenerate(null, { scroll: false });
+      });
   }, []);
 
   useEffect(() => {
@@ -585,7 +605,7 @@ export default function Home() {
     if (marketPair) fetchMarket(marketPair.a, marketPair.b, { silent: true });
   }
 
-  async function onGenerate(override) {
+  async function onGenerate(override, opts) {
     const a = (override && override.a ? override.a : playerA).trim();
     const b = (override && override.b ? override.b : playerB).trim();
     const adv = advanced.trim();
@@ -627,9 +647,13 @@ export default function Home() {
       const pb = (data.plan && data.plan.player_b) || b;
       fetchMarket(pa, pb);
       // The dashboard only exists once a report is set, so
-      // scroll to it here, after the report lands.
-      const el = document.getElementById("dashboard");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      // scroll to it here, after the report lands. The initial
+      // auto-generate on page load does not scroll: the user
+      // opened the page at the top.
+      if (!opts || opts.scroll !== false) {
+        const el = document.getElementById("dashboard");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     } catch (e) {
       setError({ message: `${t.networkError} ${String(e)}` });
     } finally {
@@ -663,7 +687,7 @@ export default function Home() {
   const leadElo = summary ? leadSide(summary.player_a.overall_elo, summary.player_b.overall_elo) : null;
   const leadSurfaceElo = summary ? leadSide(summary.player_a.surface_elo, summary.player_b.surface_elo) : null;
   const leadRecord = summary ? leadSide(summary.player_a.surface_win_rate, summary.player_b.surface_win_rate) : null;
-  const leadLast10 = summary ? leadSide(summary.player_a.last10_win_rate, summary.player_b.last10_win_rate) : null;
+  const leadRecent = summary ? leadSide(summary.player_a.recent_win_rate, summary.player_b.recent_win_rate) : null;
   const leadH2h = summary ? leadSide(summary.h2h.wins_a, summary.h2h.wins_b) : null;
   // Market rows: a venue with no quote shows "no quote" when the
   // other venue has one, and "no market" when neither has one.
@@ -886,14 +910,14 @@ export default function Home() {
                   </td>
                 </tr>
                 <tr>
-                  <td className={`num${leadLast10 === "a" ? " lead" : ""}`}>
-                    {asPct(summary.player_a.last10_win_rate) ?? "-"}
+                  <td className={`num${leadRecent === "a" ? " lead" : ""}`}>
+                    {asPct(summary.player_a.recent_win_rate) ?? "-"}
                   </td>
                   <td>
                     <Tip text={t.last10Info}>{t.last10}</Tip>
                   </td>
-                  <td className={`num${leadLast10 === "b" ? " lead" : ""}`}>
-                    {asPct(summary.player_b.last10_win_rate) ?? "-"}
+                  <td className={`num${leadRecent === "b" ? " lead" : ""}`}>
+                    {asPct(summary.player_b.recent_win_rate) ?? "-"}
                   </td>
                 </tr>
                 <tr>
