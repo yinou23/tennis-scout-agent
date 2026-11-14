@@ -84,7 +84,6 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .fixture-odds { margin-top: 8px; }
 .fixture-pill { background: #0f172a; border: 1px solid #334155; border-radius: 999px; color: #cbd5e1; display: inline-block; font-size: 13px; padding: 4px 10px; }
 .market-empty { border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px; margin: 12px 0 0; padding-top: 12px; }
-.side-title { text-align: center; }
 .side-table { border-collapse: collapse; width: 100%; }
 .side-table th, .side-table td { border-bottom: 1px solid #e5e7eb; font-size: 14px; padding: 8px 4px; text-align: left; vertical-align: middle; }
 .side-table th { color: #374151; }

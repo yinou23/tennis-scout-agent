@@ -95,7 +95,6 @@ const STRINGS = {
     generate: "生成报告",
     generating: "生成中",
     dashboard: "概率仪表盘",
-    sideList: "关键数据",
     favorite: "热门",
     probability: "概率",
     matchesLoading: "正在拉取赛程",
@@ -167,7 +166,6 @@ const STRINGS = {
     generate: "Generate report",
     generating: "Generating",
     dashboard: "Probability gauge",
-    sideList: "Key data",
     favorite: "Favorite",
     probability: "Probability",
     matchesLoading: "Loading matches",
@@ -871,7 +869,6 @@ export default function Home() {
             )}
           </section>
           <section className="card">
-            <h2 className="side-title">{t.sideList}</h2>
             <table className="side-table">
               <thead>
                 <tr>
