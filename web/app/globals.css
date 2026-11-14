@@ -62,7 +62,7 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .market-in-gauge { border-top: 1px solid #e5e7eb; margin-top: 12px; padding-top: 12px; }
 .market-in-gauge h3 { font-size: 16px; margin: 0 0 4px; }
 .market-table { align-items: center; display: grid; gap: 10px 16px; grid-template-columns: 1fr 1fr 1fr auto; }
-.market-col-label { color: #6b7280; font-size: 13px; font-weight: 600; }
+.market-col-label { color: #6b7280; font-size: 13px; font-weight: 600; justify-self: center; }
 .market-controls { align-items: center; color: #6b7280; display: flex; font-size: 13px; gap: 10px; }
 .header-auto-btn { background: #1e293b; border: 1px solid #475569; border-radius: 999px; color: #94a3b8; cursor: pointer; font-size: 13px; font-weight: 600; margin-top: 0; padding: 6px 12px; }
 .header-auto-btn.on { background: #4ade80; border-color: #4ade80; color: #0f172a; }
@@ -95,7 +95,7 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .side-table th:nth-child(2), .side-table td:nth-child(2) { color: #6b7280; text-align: center; }
 .side-table th:nth-child(3), .side-table td:nth-child(3) { text-align: center; }
 .market-player { font-weight: 600; }
-.market-cell { display: flex; }
+.market-cell { display: flex; justify-content: center; }
 .market-pill { border-radius: 999px; font-size: 13px; font-weight: 600; min-width: 52px; padding: 3px 8px; text-align: center; }
 .market-pill-poly { background: #dbeafe; color: #1e40af; }
 .market-pill-kalshi { background: #fef3c7; color: #92400e; }
