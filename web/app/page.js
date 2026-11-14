@@ -128,7 +128,6 @@ const STRINGS = {
     updatedHrAgo: "小时前",
     marketUpdateFailed: "更新失败，显示旧数据",
     marketAutoRefresh: "自动刷新",
-    marketAutoShort: "自动",
     fullReport: "完整报告",
     sources: "来源与核查",
     verificationPassed: "核查通过",
@@ -198,7 +197,6 @@ const STRINGS = {
     updatedHrAgo: "hr ago",
     marketUpdateFailed: "Refresh failed, showing older data",
     marketAutoRefresh: "Auto refresh",
-    marketAutoShort: "Auto",
     fullReport: "Full report",
     sources: "Sources and verification",
     verificationPassed: "Verification passed",
@@ -756,12 +754,9 @@ export default function Home() {
             <span className={`dot ${connected ? "dot-ok" : "dot-bad"}`} />
             {connected === null ? "..." : connected ? t.connected : t.notConnected}
           </span>
-          <label className="header-auto">
-            <span>{t.marketAutoShort}</span>
-            <button type="button" className={`market-toggle${marketAuto ? " market-toggle-on" : ""}`} role="switch" aria-checked={marketAuto} aria-label={t.marketAutoRefresh} onClick={() => setMarketAuto(!marketAuto)}>
-              <span className="market-toggle-knob" />
-            </button>
-          </label>
+          <button type="button" className={`header-auto-btn${marketAuto ? " on" : ""}`} aria-pressed={marketAuto} onClick={() => setMarketAuto(!marketAuto)}>
+            {t.marketAutoRefresh}
+          </button>
           <div className="lang-switch" role="group" aria-label="Language">
             <button type="button" className={lang === "en" ? "lang-opt active" : "lang-opt"} onClick={() => setLang("en")}>EN</button>
             <button type="button" className={lang === "zh" ? "lang-opt active" : "lang-opt"} onClick={() => setLang("zh")}>CN</button>
