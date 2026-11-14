@@ -46,7 +46,7 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .dashboard-grid { display: grid; gap: 20px; grid-template-columns: 1.6fr 1fr; margin-top: 20px; }
 .dashboard-grid section.card { margin-top: 0; }
 .gauge-wrap { background: linear-gradient(90deg, rgba(247,247,245,0) 0, #f7f7f5 20px, #f7f7f5 calc(100% - 20px), rgba(247,247,245,0) 100%); margin: 0 -28px; position: relative; text-align: center; z-index: 1; }
-.gauge-number { font-size: 28px; font-weight: 700; left: 50%; position: absolute; top: 82%; transform: translate(-50%, -50%); z-index: 5; }
+.gauge-number { font-size: 28px; font-weight: 700; left: 50%; position: absolute; top: 75%; transform: translate(-50%, -50%); z-index: 5; }
 .surface-chip { border: 1px solid #d1d5db; border-radius: 999px; color: #374151; font-size: 12px; font-weight: 600; padding: 3px 8px; }
 .surface-chip-hard { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
 .surface-chip-clay { background: #fde8e0; border-color: #f0b4a0; color: #7c2d12; }
