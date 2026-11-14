@@ -831,8 +831,6 @@ export default function Home() {
           <option key={name} value={name} />
         ))}
       </datalist>
-      <label htmlFor="advanced">{t.advancedLabel}</label>
-      <textarea id="advanced" rows={2} value={advanced} onChange={(e) => setAdvanced(e.target.value)} placeholder={t.advancedPlaceholder} />
 
       {error && (
         <section className="error">
@@ -1009,6 +1007,11 @@ export default function Home() {
           )}
         </details>
       )}
+
+      <section className="card advanced-bottom">
+        <label htmlFor="advanced">{t.advancedLabel}</label>
+        <textarea id="advanced" rows={2} value={advanced} onChange={(e) => setAdvanced(e.target.value)} placeholder={t.advancedPlaceholder} />
+      </section>
 
       <footer className="site-footer">
         <a href="https://github.com/yinou23/tennis-scout-agent" target="_blank" rel="noreferrer">GitHub</a>
