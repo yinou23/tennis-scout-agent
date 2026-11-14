@@ -115,7 +115,7 @@ const STRINGS = {
     last10Info: "最近 2 个月内的胜率；如果超过 10 场，只算最近 10 场。",
     h2h: "H2H",
     h2hInfo: "两人历史交手的胜负场次。",
-    market: "市场概率",
+    market: "市场",
     marketNote: "市场概率是投注市场投出来的，和模型概率是两回事，只做对照，不混在一起。",
     marketReadOnly: "只读行情，不下单",
     marketEmpty: "Polymarket、Kalshi 暂无市场",
@@ -186,7 +186,7 @@ const STRINGS = {
     last10Info: "Win rate in the last 2 months; if more than 10 matches, only the last 10 count.",
     h2h: "H2H",
     h2hInfo: "Head-to-head wins for each side.",
-    market: "Market probabilities",
+    market: "Market",
     marketNote: "Market probabilities come from betting markets. They are separate from the model probability, shown only for comparison.",
     marketReadOnly: "Read-only prices, no trading",
     marketEmpty: "No markets on Polymarket or Kalshi",
@@ -888,14 +888,21 @@ export default function Home() {
               {market.status === "unavailable" && <p>{t.marketUnavailable}</p>}
               {market.status === "done" && (
                 <div className="market-grid">
-                  {market.rows.filter((row) => row.prob_a && row.prob_b).map((row, idx) => (
-                    <div className="market-row" key={`${row.source}-${idx}`}>
-                      <div>
-                        <p><strong>{row.source}</strong></p>
+                  {market.rows.filter((row) => row.prob_a && row.prob_b).map((row, idx) => {
+                    const pa = Number(row.prob_a);
+                    const pb = Number(row.prob_b);
+                    const favIsA = pa >= pb;
+                    const favName = favIsA ? marketNameA : marketNameB;
+                    const favProb = favIsA ? pa : pb;
+                    return (
+                      <div className="market-row" key={`${row.source}-${idx}`}>
+                        <div>
+                          <p><strong>{row.source}</strong></p>
+                        </div>
+                        <p className="market-value">{`${favName} ${Math.round(favProb * 100)}%`}</p>
                       </div>
-                      <p className="market-value">{`${marketNameA} ${Math.round(Number(row.prob_a) * 100)}% · ${marketNameB} ${Math.round(Number(row.prob_b) * 100)}%`}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               {market.status === "done" && <p className="market-readonly">{t.marketReadOnly}</p>}

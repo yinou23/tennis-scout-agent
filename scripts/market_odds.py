@@ -526,8 +526,11 @@ def _kalshi_price_cents(market):
 def get_kalshi_odds(player_a, player_b, http_get=None):
     """Return Kalshi odds for a matchup, or None.
 
-    Reads the public /markets list. Closed markets are
-    filtered out before matching, even though the query
+    Reads the public /markets list, filtered to the ATP match
+    series (series_ticker=KXATPMATCH). Without the filter the
+    unfiltered first page of open markets contains no tennis
+    at all, so no Kalshi price was ever found. Closed markets
+    are filtered out before matching, even though the query
     already asks for status open. A market titled
     "<Name> wins" is a Yes for that player; since that
     title names only one player, the event ticker must
@@ -551,7 +554,7 @@ def get_kalshi_odds(player_a, player_b, http_get=None):
         surname_b = _surname(player_b)
         if not surname_a or not surname_b:
             return None
-        payload = http_get(f"{KALSHI_API}/markets?limit=100&status=open")
+        payload = http_get(f"{KALSHI_API}/markets?limit=100&status=open&series_ticker=KXATPMATCH")
         markets = []
         if isinstance(payload, dict):
             markets = payload.get("markets") or []
