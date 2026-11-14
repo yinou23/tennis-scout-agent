@@ -116,8 +116,7 @@ const STRINGS = {
     h2h: "H2H",
     h2hInfo: "两人历史交手的胜负场次。",
     market: "市场",
-    marketNote: "市场概率是投注市场投出来的，和模型概率是两回事，只做对照，不混在一起。",
-    marketReadOnly: "只读行情，不下单",
+    marketNote: "市场概率是投注市场投出来的，和模型概率是两回事，只做对照，不混在一起。只读行情，不下单。蓝色胶囊是 Polymarket，橙色胶囊是 Kalshi；差值是市场均价减模型概率。",
     marketEmpty: "Polymarket、Kalshi 暂无市场",
     marketPolymarket: "Polymarket",
     marketKalshi: "Kalshi",
@@ -187,8 +186,7 @@ const STRINGS = {
     h2h: "H2H",
     h2hInfo: "Head-to-head wins for each side.",
     market: "Market",
-    marketNote: "Market probabilities come from betting markets. They are separate from the model probability, shown only for comparison.",
-    marketReadOnly: "Read-only prices, no trading",
+    marketNote: "Market probabilities come from betting markets. They are separate from the model probability, shown only for comparison. Read-only prices, no trading. Blue pill is Polymarket, orange pill is Kalshi; the diff is the market average minus the model probability.",
     marketEmpty: "No markets on Polymarket or Kalshi",
     marketPolymarket: "Polymarket",
     marketKalshi: "Kalshi",
@@ -888,24 +886,32 @@ export default function Home() {
               {market.status === "unavailable" && <p>{t.marketUnavailable}</p>}
               {market.status === "done" && (
                 <div className="market-grid">
-                  {market.rows.filter((row) => row.prob_a && row.prob_b).map((row, idx) => {
-                    const pa = Number(row.prob_a);
-                    const pb = Number(row.prob_b);
-                    const favIsA = pa >= pb;
-                    const favName = favIsA ? marketNameA : marketNameB;
-                    const favProb = favIsA ? pa : pb;
-                    return (
-                      <div className="market-row" key={`${row.source}-${idx}`}>
-                        <div>
-                          <p><strong>{row.source}</strong></p>
+                  {(() => {
+                    const lastName = (name) => String(name || "").trim().split(/\s+/).pop() || "-";
+                    const polyRow = market.rows.find((r) => /polymarket/i.test(r.source || ""));
+                    const kalshiRow = market.rows.find((r) => /kalshi/i.test(r.source || ""));
+                    const players = [
+                      { name: marketNameA, model: asNumber(summary.prob_a_calibrated), poly: polyRow ? asNumber(polyRow.prob_a) : null, kalshi: kalshiRow ? asNumber(kalshiRow.prob_a) : null },
+                      { name: marketNameB, model: asNumber(summary.prob_b_calibrated), poly: polyRow ? asNumber(polyRow.prob_b) : null, kalshi: kalshiRow ? asNumber(kalshiRow.prob_b) : null },
+                    ];
+                    return players.map((p) => {
+                      const markets = [p.poly, p.kalshi].filter((v) => v !== null && v !== undefined);
+                      const avg = markets.length ? markets.reduce((s, v) => s + v, 0) / markets.length : null;
+                      const diff = avg !== null && p.model !== null && p.model !== undefined ? Math.round((avg - p.model) * 100) : null;
+                      const notable = diff !== null && Math.abs(diff) > 5;
+                      return (
+                        <div className="market-row" key={p.name}>
+                          <span className="market-player">{lastName(p.name)}</span>
+                          <span className="market-model">{p.model !== null && p.model !== undefined ? `${Math.round(p.model * 100)}%` : "-"}</span>
+                          <span className={`market-pill market-pill-poly${p.poly === null || p.poly === undefined ? " market-pill-none" : ""}`}>{p.poly !== null && p.poly !== undefined ? `${Math.round(p.poly * 100)}%` : "-"}</span>
+                          <span className={`market-pill market-pill-kalshi${p.kalshi === null || p.kalshi === undefined ? " market-pill-none" : ""}`}>{p.kalshi !== null && p.kalshi !== undefined ? `${Math.round(p.kalshi * 100)}%` : "-"}</span>
+                          <span className={`market-diff${notable ? " market-diff-notable" : ""}`}>{diff !== null ? `${diff > 0 ? "+" : ""}${diff}%` : "-"}</span>
                         </div>
-                        <p className="market-value">{`${favName} ${Math.round(favProb * 100)}%`}</p>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               )}
-              {market.status === "done" && <p className="market-readonly">{t.marketReadOnly}</p>}
             </div>
             )}
           </section>
