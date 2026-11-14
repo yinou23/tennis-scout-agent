@@ -230,12 +230,21 @@ const STRINGS = {
 // "HARD · 硬地". The chip is shown only when a surface is set.
 const SURFACE_ZH = { Hard: "硬地", Clay: "红土", Grass: "草地", Carpet: "地毯" };
 
+// Chip text is one language only: English in English mode, Chinese in
+// Chinese mode. The chip color is per surface: Hard blue, Grass green,
+// Clay brown-red, Carpet gray.
 function surfaceChip(surface, lang) {
   if (!surface) return null;
-  const upper = String(surface).toUpperCase();
-  // The chip is bilingual in both languages: the user wrote it as
-  // "HARD · 硬地", so the Chinese name stays even in English mode.
-  return `${upper} · ${SURFACE_ZH[surface] || surface}`;
+  if (lang === "zh") return SURFACE_ZH[surface] || surface;
+  return String(surface).toUpperCase();
+}
+
+function surfaceChipClass(surface) {
+  const key = String(surface || "").toLowerCase();
+  if (key === "hard") return "surface-chip-hard";
+  if (key === "clay") return "surface-chip-clay";
+  if (key === "grass") return "surface-chip-grass";
+  return "surface-chip-carpet";
 }
 
 function pick(obj, keys) {
@@ -764,23 +773,9 @@ export default function Home() {
         )}
       </section>
 
-      <div className="selectors">
-        <div>
-          <label htmlFor="player-a">{t.playerA}</label>
-          <input id="player-a" type="text" list="player-list" value={playerA} onChange={(e) => setPlayerA(e.target.value)} />
-        </div>
-        <span className="selectors-vs">VS</span>
-        <div>
-          <label htmlFor="player-b">{t.playerB}</label>
-          <input id="player-b" type="text" list="player-list" value={playerB} onChange={(e) => setPlayerB(e.target.value)} />
-        </div>
-      </div>
-      <datalist id="player-list">
-        {PLAYERS.map((name) => (
-          <option key={name} value={name} />
-        ))}
-      </datalist>
-      <div className="surface-row">
+      <div className="form-row">
+        <input id="player-a" type="text" list="player-list" value={playerA} onChange={(e) => setPlayerA(e.target.value)} aria-label={t.playerA} />
+        <input id="player-b" type="text" list="player-list" value={playerB} onChange={(e) => setPlayerB(e.target.value)} aria-label={t.playerB} />
         <div className="seg-group" role="group" aria-label={t.surface}>
           {[["", t.surfaceAny], ["Hard", "Hard"], ["Clay", "Clay"], ["Grass", "Grass"], ["Carpet", "Carpet"]].map(([value, label]) => (
             <button
@@ -796,6 +791,11 @@ export default function Home() {
         </div>
         <button className="generate-btn" onClick={() => onGenerate()} disabled={loading}>{loading ? t.generating : t.generate}</button>
       </div>
+      <datalist id="player-list">
+        {PLAYERS.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
       <label htmlFor="advanced">{t.advancedLabel}</label>
       <textarea id="advanced" rows={2} value={advanced} onChange={(e) => setAdvanced(e.target.value)} placeholder={t.advancedPlaceholder} />
 
@@ -819,12 +819,13 @@ export default function Home() {
       {report && summary && (
         <div className="dashboard-grid" id="dashboard">
           <section className="card gauge-card">
-            <h2 className="matchup-title">
-              {surfaceChip(summary.surface, lang) && <span className="surface-chip">{surfaceChip(summary.surface, lang)}</span>}
-            </h2>
             <div className="gauge-zone">
               <span className={`gauge-name${summary.favorite === summary.player_a.name ? " fav-name" : ""}`}>{summary.player_a.name || "-"}</span>
-              <span aria-hidden="true" />
+              {surfaceChip(summary.surface, lang) ? (
+                <span className={`surface-chip ${surfaceChipClass(summary.surface)}`}>{surfaceChip(summary.surface, lang)}</span>
+              ) : (
+                <span aria-hidden="true" />
+              )}
               <span className={`gauge-name${summary.favorite === summary.player_b.name ? " fav-name" : ""}`}>{summary.player_b.name || "-"}</span>
               <Avatar name={summary.player_a.name} large />
               <Gauge summary={summary} t={t} favProb={favProb} />
