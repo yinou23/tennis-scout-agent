@@ -259,11 +259,15 @@ def create_app(graph_runner=None):
     # port 3000 and the API on port 8000, so without this the browser
     # blocks the fetch. The Step 3 rewrite was based on the pre-CORS
     # version and dropped it, which broke /report from the web page
-    # (preflight OPTIONS returned 405). Only the two local origins,
-    # only GET and POST.
+    # (preflight OPTIONS returned 405). Local origins plus the
+    # production Cloudflare Pages origin; only GET and POST.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://127.0.0.1:3000", "http://localhost:3000"],
+        allow_origins=[
+            "http://127.0.0.1:3000",
+            "http://localhost:3000",
+            "https://tennis-scout-agent.pages.dev",
+        ],
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
