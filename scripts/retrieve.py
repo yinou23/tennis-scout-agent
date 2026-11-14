@@ -207,10 +207,25 @@ def retrieve_facts(conn, question, context=None):
                         if vals:
                             avg = sum(vals) / len(vals)
                             diff = round((avg - model_pct / 100.0) * 100, 1)
+                            # Verdict, computed here so the LLM does
+                            # not have to infer the direction: a
+                            # negative diff means the market gives
+                            # this player LESS credit than the model,
+                            # so the market underrates them; a
+                            # positive diff means the market gives
+                            # MORE credit, so the market overrates
+                            # them. 5 points is the threshold, same
+                            # as the Market section's notable gap.
+                            if diff <= -5:
+                                verdict = "underrated by the market"
+                            elif diff >= 5:
+                                verdict = "overrated by the market"
+                            else:
+                                verdict = "fairly priced by the market"
                             lines.append(
                                 f"  {pname}: market average {_pct(avg)}% vs model "
                                 f"{model_pct}%, diff {diff:+.1f} points "
-                                f"(market minus model)."
+                                f"(market minus model). Verdict: {verdict}."
                             )
     context_text = "\n".join(lines) if lines else "No database facts found for the players named."
     return {
