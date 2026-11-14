@@ -125,3 +125,6 @@ details.card ul { margin: 8px 0 0; padding-left: 20px; }
   .gauge-number { font-size: 20px; }
   .gauge-wrap { margin: 0 -12px; }
 }
+.site-footer { margin-top: 24px; text-align: center; }
+.site-footer a { color: #94a3b8; font-size: 13px; }
+.site-footer a:hover { color: #4ade80; }

@@ -967,6 +967,10 @@ export default function Home() {
           )}
         </details>
       )}
+
+      <footer className="site-footer">
+        <a href="https://github.com/yinou23/tennis-scout-agent" target="_blank" rel="noreferrer">yinou</a>
+      </footer>
     </main>
   );
 }
