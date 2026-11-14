@@ -132,6 +132,30 @@ class FullGraphState(TypedDict, total=False):
     error: str
 
 
+_H2H_KEYWORDS = ("h2h", "head-to-head", "head to head", "交手")
+
+
+def _llm_h2h_is_plain_matchup(question, plan):
+    """True when the LLM returned an h2h plan for a plain vs matchup.
+
+    The LLM sometimes reads a bare "A vs B" (no surface, no h2h
+    word) as a head-to-head question. The full report only supports
+    match plans, and a plain vs is a match, not h2h. When this
+    happens, the caller falls back to the rule planner, which
+    parses "A vs B" as a match with surface null. An explicit
+    h2h question (one of the keywords above) is never overridden.
+    """
+    if not isinstance(plan, dict) or plan.get("tool") != "h2h":
+        return False
+    question = question or ""
+    lower = question.lower()
+    if any(kw in lower for kw in _H2H_KEYWORDS):
+        return False
+    # A plain matchup names two players with vs (or Chinese 对).
+    padded = " " + lower.replace("vs.", "vs") + " "
+    return " vs " in padded or "对" in question
+
+
 def plan_with_llm_graph(question, llm_caller=None):
     """Return (plan, source) for a question, LLM first, rule fallback labelled.
 
@@ -157,7 +181,7 @@ def plan_with_llm_graph(question, llm_caller=None):
             plan = _parse_llm_response(raw)
         except Exception:  # noqa: BLE001 - any LLM failure falls back, labelled
             plan = None
-        if plan is not None:
+        if plan is not None and not _llm_h2h_is_plain_matchup(question, plan):
             return plan, "llm"
         plan = _rule_parse_question(question) if _rule_parse_question else None
         return plan, "rule_fallback"
@@ -166,7 +190,7 @@ def plan_with_llm_graph(question, llm_caller=None):
         plan = _parse_llm_response(raw) if _parse_llm_response else None
     except Exception:  # noqa: BLE001 - any fake caller failure falls back, labelled
         plan = None
-    if plan is not None:
+    if plan is not None and not _llm_h2h_is_plain_matchup(question, plan):
         return plan, "llm"
     plan = _rule_parse_question(question) if _rule_parse_question else None
     return plan, "rule_fallback"

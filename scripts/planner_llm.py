@@ -74,6 +74,8 @@ def build_prompt(question):
         "Rules:\n"
         "- Use full player names when the question gives them; otherwise use the name as given.\n"
         "- Surface is null when the question does not name a surface.\n"
+        "- A question naming two players with vs (for example \"Jannik Sinner vs Carlos Alcaraz\") is a match plan, even when no surface is named. Surface is null in that case.\n"
+        "- Use h2h ONLY when the question explicitly asks about head-to-head history (words such as h2h, head-to-head, or 交手). A plain vs matchup is never h2h.\n"
         "- If the question does not match any tool, output exactly: null\n"
         "- Output ONLY the JSON plan, or null. No explanation, no markdown, no extra text.\n\n"
         f"Question: {question}\n"
