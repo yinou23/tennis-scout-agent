@@ -478,7 +478,7 @@ function Gauge({ summary, t, favProb }) {
         )}
       </svg>
       <div className="gauge-number">
-        <Tip text={t.probInfo}>{favProb || "-"}</Tip>
+        <Tip text={t.probInfo}>{asPct(favProb) || "-"}</Tip>
       </div>
     </div>
   );
