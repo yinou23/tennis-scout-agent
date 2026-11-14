@@ -10,7 +10,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 // surface record, and head to head are read from the API summary
 // fields and shown exactly as returned. The only arithmetic allowed
 // is a display transform, documented where it is used:
-//   gauge needle angle = prob * 180 degrees (display only)
+//   gauge green = the favorite's share of the arc (display only)
 //   percentage text = rate * 100, one decimal (display only)
 // In both cases the original number is shown alongside, and the
 // transform never changes the number itself. The report text is
@@ -102,7 +102,7 @@ const STRINGS = {
     matchesEmpty: "暂无即将开打的比赛",
     matchesUnavailable: "赛程暂时不可用",
     noQuote: "暂无报价",
-    probInfo: "这是用 Elo 算出来的校准概率，0.5 是五五开，表针偏向哪一边，哪一边就是热门。混合概率是校准前的数，放在右边数据一览里。",
+    probInfo: "这是用 Elo 算出来的校准概率，0.5 是五五开，绿色弧线是热门一方的占比。混合概率是校准前的数，放在右边数据一览里。",
     mixedProb: "混合概率",
     mixedProbInfo: "混合概率是校准前的概率，先把场地 Elo 和总 Elo 混合，再校准成最终概率。",
     elo: "Elo",
@@ -112,14 +112,15 @@ const STRINGS = {
     surfaceElo: "Elo",
     surfaceRecord: "战绩",
     surfaceRecordInfo: "该球员在这个场地上的胜负场次和胜率。",
-    last10: "最近 10 场胜率",
-    last10Info: "最近 10 场比赛的胜率，括号里是胜场数。",
+    last10: "最近胜率",
+    last10Info: "最近 10 场比赛的胜率，下面是胜场数。",
     h2h: "H2H",
     h2hInfo: "两人历史交手的胜负场次，括号里是总场数。",
     meetings: "场",
     market: "市场概率",
     marketNote: "市场概率是投注市场投出来的，和模型概率是两回事，只做对照，不混在一起。",
     marketReadOnly: "只读行情，不下单",
+    marketEmpty: "Polymarket、Kalshi 暂无市场",
     marketPolymarket: "Polymarket",
     marketKalshi: "Kalshi",
     marketUnavailable: "市场数据暂时不可用",
@@ -175,7 +176,7 @@ const STRINGS = {
     matchesEmpty: "No upcoming matches",
     matchesUnavailable: "Schedule unavailable",
     noQuote: "No quote",
-    probInfo: "This is the calibrated probability from Elo. 0.5 is even, and the needle leans toward the favorite. The blended probability is the pre-calibration number, shown in the side list.",
+    probInfo: "This is the calibrated probability from Elo. 0.5 is even, and the green arc is the favorite's share. The blended probability is the pre-calibration number, shown in the side list.",
     mixedProb: "Blended probability",
     mixedProbInfo: "Blended probability is the pre-calibration number: surface Elo and overall Elo are blended first, then calibrated into the final probability.",
     elo: "Elo",
@@ -185,14 +186,15 @@ const STRINGS = {
     surfaceElo: "Elo",
     surfaceRecord: "record",
     surfaceRecordInfo: "This player's win-loss record and win rate on this surface.",
-    last10: "Last 10 win rate",
-    last10Info: "Win rate over the last 10 matches; wins in parentheses.",
+    last10: "Recent win rate",
+    last10Info: "Win rate over the last 10 matches; wins below.",
     h2h: "H2H",
     h2hInfo: "Head-to-head wins for each side; total meetings in parentheses.",
     meetings: "meetings",
     market: "Market probabilities",
     marketNote: "Market probabilities come from betting markets. They are separate from the model probability, shown only for comparison.",
     marketReadOnly: "Read-only prices, no trading",
+    marketEmpty: "No markets on Polymarket or Kalshi",
     marketPolymarket: "Polymarket",
     marketKalshi: "Kalshi",
     marketUnavailable: "Market data unavailable",
@@ -448,24 +450,20 @@ function Avatar({ name, flip, large }) {
   );
 }
 
-// Gauge: semicircular SVG. Display transform only. Model: the left
-// end is player A (probA = 1), the right end is player B (probA =
-// 0), the centre is 50/50. The needle points toward the favoured
-// side, and the green fills the favoured side's share of the arc,
-// from the favoured end to the needle, so the green reads as the
-// favourite's share, not the margin over 50/50. No 0/100 end
-// labels: they read backwards against the left-is-A scale. The
-// original probability is shown alongside, and the angle never
-// changes the number.
-function Gauge({ summary, t }) {
+// Gauge: semicircular SVG, no needle. Display transform only.
+// Model: the left end is player A (probA = 1), the right end is
+// player B (probA = 0), the centre is 50/50. The green fills the
+// favoured side's share of the arc, anchored at the favoured end,
+// so the green reads as the favourite's share. The favourite's
+// calibrated probability is printed inside the arc, where the
+// needle used to be; the needle is gone because its angle was
+// measured from the opposite end of the arc and pointed away
+// from the green's end. No 0/100 end labels: they read backwards
+// against the left-is-A scale. The original probability is shown
+// as returned, and the fill never changes the number.
+function Gauge({ summary, t, favProb, openId, setOpenId }) {
   const probA = asNumber(summary.prob_a_calibrated);
   if (probA === null) return null;
-  const cx = 100;
-  const cy = 100;
-  const r = 68;
-  const theta = probA * Math.PI;
-  const x2 = cx + r * Math.cos(theta);
-  const y2 = cy - r * Math.sin(theta);
   const arcLen = 251.3;
   const greenLen = probA >= 0.5 ? probA * arcLen : (1 - probA) * arcLen;
   const greenStart = probA >= 0.5 ? 0 : probA * arcLen;
@@ -476,9 +474,12 @@ function Gauge({ summary, t }) {
         {greenLen > 0 && (
           <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#15803d" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${greenLen} ${arcLen}`} strokeDashoffset={-greenStart} />
         )}
-        <line x1={cx} y1={cy} x2={x2} y2={y2} stroke="#111827" strokeWidth="3" strokeLinecap="round" />
-        <circle cx={cx} cy={cy} r="6" fill="#111827" />
+        <text x="100" y="86" textAnchor="middle" fontSize="20" fontWeight="700" fill="#111827">{favProb || "-"}</text>
       </svg>
+      <div className="gauge-label">
+        {t.calibratedProb}
+        <InfoButton id="prob" openId={openId} setOpenId={setOpenId} label="i" />
+      </div>
     </div>
   );
 }
@@ -815,16 +816,13 @@ export default function Home() {
             </h2>
             <div className="gauge-zone">
               <Avatar name={summary.player_a.name} large />
-              <Gauge summary={summary} t={t} />
+              <Gauge summary={summary} t={t} favProb={favProb} openId={openInfo} setOpenId={setOpenInfo} />
               <Avatar name={summary.player_b.name} flip large />
             </div>
-            <div className="calib-chip">
-              <span>{t.calibratedProb}</span>
-              <InfoButton id="prob" openId={openInfo} setOpenId={setOpenInfo} label="i" />
-              <span className="calib-value">{favProb || "-"}</span>
-            </div>
             {openInfo === "prob" && <p className="info-text">{t.probInfo}</p>}
-            {!(market.status === "done" && !marketHasAny) && (
+            {market.status === "done" && !marketHasAny ? (
+              <p className="market-empty">{t.marketEmpty}</p>
+            ) : (
             <div className="market-in-gauge">
               <div className="market-head">
                 <h3>
@@ -864,7 +862,7 @@ export default function Home() {
             )}
           </section>
           <section className="card">
-            <h2>{t.sideList}</h2>
+            <h2 className="side-title">{t.sideList}</h2>
             <table className="side-table">
               <thead>
                 <tr>
@@ -945,7 +943,7 @@ export default function Home() {
                     {summary.h2h.wins_a ? `${summary.h2h.wins_a}` : "-"}
                   </td>
                   <td>
-                    <div>{t.h2h}</div>
+                    {t.h2h}
                     <InfoButton id="h2h" openId={openInfo} setOpenId={setOpenInfo} label="i" />
                     {summary.h2h.total && <div className="sub-label">{`${summary.h2h.total} ${t.meetings}`}</div>}
                   </td>

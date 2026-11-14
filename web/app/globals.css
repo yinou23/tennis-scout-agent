@@ -2,8 +2,8 @@
    Presentation only. No tennis number is computed here. The
    report text is rendered verbatim from the API, and the gauge
    only reformats a number the API already returned.
-   The gauge needle angle is a display transform only,
-   and the original number is always shown alongside. */
+   The gauge green is the favorite's share of the arc, a display
+   transform only, and the original number is printed inside it. */
 body { background: #0b1220; color: #e5e7eb; font-family: system-ui, -apple-system, sans-serif; margin: 0; }
 main { margin: 0 auto; max-width: 1060px; padding: 28px 16px 56px; }
 .topbar { align-items: center; border-bottom: 1px solid #263248; display: flex; justify-content: space-between; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; }
@@ -45,23 +45,21 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .dashboard-grid { display: grid; gap: 20px; grid-template-columns: 1.6fr 1fr; margin-top: 20px; }
 .dashboard-grid section.card { margin-top: 0; }
 .gauge-wrap { text-align: center; }
-.matchup-title { align-items: baseline; display: flex; flex-wrap: wrap; gap: 8px; }
+.matchup-title { align-items: baseline; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; text-align: center; }
 .vs-muted { color: #6b7280; font-weight: 400; }
 .surface-chip { border: 1px solid #d1d5db; border-radius: 999px; color: #374151; font-size: 12px; font-weight: 600; padding: 3px 8px; }
 .gauge-zone { align-items: center; display: grid; gap: 8px; grid-template-columns: auto 1fr auto; }
 .gauge-zone .avatar { margin: 0; }
-.calib-chip { align-items: center; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; }
 .market-in-gauge { border-top: 1px solid #e5e7eb; margin-top: 12px; padding-top: 12px; }
 .market-in-gauge h3 { font-size: 16px; margin: 0 0 4px; }
 .market-head { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
 .market-head h3 { margin: 0; }
 .market-head .market-controls { margin: 0; }
-.calib-value { font-weight: 700; margin-left: auto; }
 .fav-name { color: #15803d; }
 .lead { color: #15803d; }
 .avatar { border-radius: 50%; display: block; height: 72px; margin: 0 auto 6px; object-fit: cover; width: 72px; }
 .avatar-flip { transform: scaleX(-1); }
-.avatar-lg { height: 88px; width: 88px; }
+.avatar-lg { -webkit-mask-image: radial-gradient(circle closest-side, #000 78%, transparent 96%); height: 112px; mask-image: radial-gradient(circle closest-side, #000 78%, transparent 96%); width: 112px; }
 .matches { margin-top: 20px; }
 .matches-note { color: #94a3b8; font-size: 14px; margin: 4px 0 0; }
 .matches-grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
@@ -76,14 +74,17 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .fixture-vs { color: #94a3b8; font-size: 14px; font-weight: 600; }
 .fixture-odds { margin-top: 8px; }
 .fixture-pill { background: #0f172a; border: 1px solid #334155; border-radius: 999px; color: #cbd5e1; display: inline-block; font-size: 13px; padding: 4px 10px; }
+.gauge-label { color: #6b7280; font-size: 14px; margin-top: 2px; text-align: center; }
+.market-empty { border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px; margin: 12px 0 0; padding-top: 12px; }
+.side-title { text-align: center; }
 .side-table { border-collapse: collapse; width: 100%; }
-.side-table th, .side-table td { border-bottom: 1px solid #e5e7eb; font-size: 14px; padding: 8px 4px; text-align: left; vertical-align: top; }
+.side-table th, .side-table td { border-bottom: 1px solid #e5e7eb; font-size: 14px; padding: 8px 4px; text-align: left; vertical-align: middle; }
 .side-table th { color: #374151; }
 .side-table td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .side-table th:nth-child(1), .side-table td:nth-child(1) { text-align: center; }
 .side-table th:nth-child(2), .side-table td:nth-child(2) { color: #6b7280; text-align: center; }
 .side-table th:nth-child(3), .side-table td:nth-child(3) { text-align: center; }
-.sub-label { color: #6b7280; font-size: 12px; }
+.sub-label { color: #6b7280; font-size: 11px; }
 .market-grid { display: grid; gap: 0 20px; grid-template-columns: 1fr 1fr; }
 .market-row { align-items: baseline; border-bottom: 1px solid #e5e7eb; display: flex; gap: 12px; justify-content: space-between; padding: 10px 0; }
 .market-row:last-child { border-bottom: 0; }
@@ -116,5 +117,5 @@ details.card ul { margin: 8px 0 0; padding-left: 20px; }
   h1 { font-size: 26px; }
 }
 @media (max-width: 560px) {
-  .avatar-lg { height: 64px; width: 64px; }
+  .avatar-lg { height: 80px; width: 80px; }
 }
