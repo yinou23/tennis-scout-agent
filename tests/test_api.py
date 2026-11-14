@@ -23,6 +23,7 @@ do not burn LLM quota and do not flake on a 503.
 
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -135,3 +136,34 @@ def test_report_endpoint_empty_question_returns_422():
     client = TestClient(app)
     response = client.post("/report", json={"question": "   "})
     assert response.status_code == 422
+
+
+@pytest.mark.skipif(not TESTCLIENT_AVAILABLE, reason="fastapi/httpx not installed, TestClient tests skipped")
+def test_report_out_of_scope_returns_friendly_message():
+    app = create_app(graph_runner=lambda q: _success_state())
+    client = TestClient(app)
+    with patch("planner_llm.classify_question", return_value=("out_of_scope", None)):
+        response = client.post("/report", json={"question": "what is the capital of France"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["kind"] == "out_of_scope"
+    assert "outside tennis" in payload["message"]
+    assert "error" not in payload
+
+
+@pytest.mark.skipif(not TESTCLIENT_AVAILABLE, reason="fastapi/httpx not installed, TestClient tests skipped")
+def test_report_open_returns_answer():
+    app = create_app(graph_runner=lambda q: _success_state())
+    client = TestClient(app)
+    with patch("planner_llm.classify_question", return_value=("open", None)), patch(
+        "ask.answer_open_question",
+        return_value={"text": "Fils is underrated.", "facts": {"players": []}},
+    ):
+        response = client.post(
+            "/report",
+            json={"question": "fils是否被低估", "player_a": "Ben Shelton", "player_b": "Arthur Fils", "surface": "Hard"},
+        )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["kind"] == "answer"
+    assert payload["text"] == "Fils is underrated."

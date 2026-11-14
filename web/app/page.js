@@ -509,6 +509,7 @@ export default function Home() {
   const [connected, setConnected] = useState(null);
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState(null);
+  const [answer, setAnswer] = useState(null);
   const [error, setError] = useState(null);
   const [market, setMarket] = useState({ status: "idle", rows: [] });
   const [marketPair, setMarketPair] = useState(null);
@@ -626,6 +627,7 @@ export default function Home() {
   // loadCachedDefault so both paths show the same dashboard.
   function applyReport(data, a, b, opts) {
     setReport(data);
+    setAnswer(null);
     // Market is separate and non blocking. Use the player names
     // from the report plan when present, else the selectors.
     const pa = (data.plan && data.plan.player_a) || a;
@@ -651,6 +653,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setReport(null);
+    setAnswer(null);
     setMarket({ status: "idle", rows: [] });
     try {
       const res = await fetch("/default-report.json");
@@ -675,6 +678,7 @@ export default function Home() {
       if (!a || !b) {
         setError({ message: t.emptyQuestion });
         setReport(null);
+        setAnswer(null);
         return;
       }
       q = `${a} vs ${b}`;
@@ -683,10 +687,11 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setReport(null);
+    setAnswer(null);
     setMarket({ status: "idle", rows: [] });
     try {
       const res = await fetch(`${API_URL}/report`, {
-        body: JSON.stringify({ question: q }),
+        body: JSON.stringify({ question: q, player_a: a || null, player_b: b || null, surface: surface || null }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
@@ -699,6 +704,13 @@ export default function Home() {
           plan: detail.plan,
           verification: detail.verification,
         });
+        return;
+      }
+      // Open tennis question or out of scope: show the text
+      // answer (or the friendly scope message) as a card, not
+      // as an error and not as a match dashboard.
+      if (data.kind === "answer" || data.kind === "out_of_scope") {
+        setAnswer({ text: data.text || data.message || "", question: q });
         return;
       }
       applyReport(data, a, b, opts);
@@ -846,6 +858,12 @@ export default function Home() {
             </ul>
           )}
           <p>{t.errorNote}</p>
+        </section>
+      )}
+
+      {answer && (
+        <section className="card answer-card" id="answer">
+          <p className="answer-text">{answer.text}</p>
         </section>
       )}
 

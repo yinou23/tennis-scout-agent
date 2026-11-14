@@ -178,6 +178,98 @@ def plan_with_llm(question, llm_caller=None):
     return plan, "llm"
 
 
+# ---------------------------------------------------------------------------
+# Router classification for /report: match / open / out_of_scope
+# ---------------------------------------------------------------------------
+# The /report endpoint routes a question three ways:
+# - "match": a match prediction (two players, optional surface).
+#   Runs the verified full graph (numbers from tools only).
+# - "open": about tennis or the tennis betting market, but not a
+#   match prediction (head-to-head, Elo, form, surface record,
+#   value/underrated, style, history, opinion). Runs the open
+#   answer path: database facts plus the LLM's own understanding.
+# - "out_of_scope": not about tennis or the tennis market. The
+#   API answers with a friendly message, never a raw error code.
+# A match plan is only for "predict this match" questions. A
+# value question such as "is Fils underrated" is "open", because
+# the open path fetches the model probability and the market
+# prices and lets the LLM explain the gap.
+
+
+def build_classify_prompt(question, context=None):
+    ctx = context if isinstance(context, dict) else {}
+    form = ""
+    if ctx.get("player_a") or ctx.get("player_b") or ctx.get("surface"):
+        form = (
+            f"\nForm context (the matchup filled in on the page): "
+            f"player A {ctx.get('player_a') or '-'}, player B {ctx.get('player_b') or '-'}, "
+            f"surface {ctx.get('surface') or 'any'}."
+        )
+    return (
+        "You classify a question for a tennis scouting system. "
+        "Answer with exactly one of the following, and nothing else.\n\n"
+        "Scope: only questions about tennis or the tennis betting market. "
+        "If the question is NOT about tennis or the tennis market, output exactly:\n"
+        "OUT_OF_SCOPE\n\n"
+        "If it IS about tennis or the tennis market AND it asks for a match prediction "
+        "(who wins, who is the favorite, or the win probability for a named matchup), "
+        "output one JSON object and nothing else:\n"
+        '{"tool": "match", "player_a": "<player A>", "player_b": "<player B>", "surface": "<Hard|Clay|Grass|Carpet|null>"}\n'
+        "Use the form context for a player or surface the question does not name. "
+        "A bare \"A vs B\" is a match prediction.\n\n"
+        "If it IS about tennis or the tennis market but does NOT ask for a match prediction "
+        "(for example head-to-head, Elo, recent form, a surface record, whether a player is "
+        "underrated or overrated, playing style, history, or an opinion), output exactly:\n"
+        "OPEN\n\n"
+        "Do not explain. Do not add any other text."
+        + form
+        + "\n\nQuestion: "
+        + question
+        + "\n"
+    )
+
+
+def classify_question(question, context=None, llm_caller=None):
+    """Classify a question for /report routing.
+
+    Returns (kind, plan) where kind is "match", "open", or
+    "out_of_scope", and plan is the match plan dict for kind
+    "match" (else None). llm_caller, when given, is a function
+    (prompt) -> raw text, used by tests to avoid a real call.
+    Without a key or on LLM failure, a match template from the
+    rule planner is treated as "match"; anything else is "open"
+    so the open answer path can still try it.
+    """
+    api_key = os.environ.get("LLM_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    model = os.environ.get("LLM_MODEL") or DEFAULT_MODEL
+    raw = None
+    if llm_caller is not None:
+        try:
+            raw = llm_caller(build_classify_prompt(question, context))
+        except Exception:
+            raw = None
+    elif api_key:
+        try:
+            raw = call_gemini(build_classify_prompt(question, context), api_key, model=model)
+        except Exception:
+            raw = None
+    if raw is not None:
+        text = str(raw).strip()
+        if text == "OUT_OF_SCOPE":
+            return "out_of_scope", None
+        if text == "OPEN":
+            return "open", None
+        plan = parse_llm_response(text)
+        if plan is not None and plan.get("tool") == "match":
+            return "match", plan
+    # Fallback: rule planner. A match template is a match;
+    # anything else goes to the open answer path.
+    plan = parse_question(question)
+    if plan is not None and plan.get("tool") == "match":
+        return "match", plan
+    return "open", None
+
+
 def main(argv):
     if len(argv) < 2:
         print('Usage: python scripts/planner_llm.py "Who is more likely to win, Sinner or Alcaraz on hard?"')

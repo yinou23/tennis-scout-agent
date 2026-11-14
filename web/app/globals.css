@@ -111,6 +111,12 @@ details.card ul { margin: 8px 0 0; padding-left: 20px; }
 .error { background: #fff1f1; border: 1px solid #e0a0a0; border-radius: 12px; color: #111827; margin-top: 20px; padding: 20px; }
 .error h2 { color: #991b1b; font-size: 19px; margin: 0 0 8px; }
 .error p { color: #1f2937; line-height: 1.6; }
+
+/* Open tennis answer card (kind answer / out_of_scope): a text
+   answer from the LLM, grounded in database facts. Not an error
+   and not a match dashboard. */
+.answer-card { margin-top: 20px; padding: 20px; }
+.answer-text { color: #e2e8f0; line-height: 1.7; margin: 0; white-space: pre-wrap; }
 @media (max-width: 860px) {
   .dashboard-grid { grid-template-columns: 1fr; }
   .matches-grid { grid-template-columns: 1fr; }

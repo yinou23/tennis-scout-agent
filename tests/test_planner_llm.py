@@ -18,7 +18,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from planner_llm import build_prompt, parse_llm_response, plan_with_llm, validate_plan
+from planner_llm import build_prompt, classify_question, parse_llm_response, plan_with_llm, validate_plan
 
 
 def test_prompt_lists_tools_and_forbids_numbers():
@@ -82,3 +82,50 @@ def test_plan_without_key_falls_back_to_rule(monkeypatch):
     plan, source = plan_with_llm("Jannik Sinner vs Carlos Alcaraz Hard")
     assert source == "no_key_rule"
     assert plan["tool"] == "match"
+
+
+def test_classify_out_of_scope():
+    kind, plan = classify_question(
+        "what is the capital of France", {}, llm_caller=lambda p: "OUT_OF_SCOPE"
+    )
+    assert kind == "out_of_scope"
+    assert plan is None
+
+
+def test_classify_open():
+    kind, plan = classify_question(
+        "fils是否被低估",
+        {"player_a": "Ben Shelton", "player_b": "Arthur Fils", "surface": "Hard"},
+        llm_caller=lambda p: "OPEN",
+    )
+    assert kind == "open"
+    assert plan is None
+
+
+def test_classify_match_plan():
+    kind, plan = classify_question(
+        "Shelton 对 Fils 硬地",
+        {},
+        llm_caller=lambda p: '{"tool": "match", "player_a": "Ben Shelton", "player_b": "Arthur Fils", "surface": "Hard"}',
+    )
+    assert kind == "match"
+    assert plan["tool"] == "match"
+    assert plan["player_a"] == "Ben Shelton"
+    assert plan["player_b"] == "Arthur Fils"
+    assert plan["surface"] == "Hard"
+
+
+def test_classify_fallback_match_template(monkeypatch):
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    kind, plan = classify_question("Jannik Sinner vs Carlos Alcaraz Hard", {})
+    assert kind == "match"
+    assert plan["tool"] == "match"
+
+
+def test_classify_fallback_non_match_is_open(monkeypatch):
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    kind, plan = classify_question("fils是否被低估", {})
+    assert kind == "open"
+    assert plan is None

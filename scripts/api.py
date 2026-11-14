@@ -230,6 +230,16 @@ def build_report_response(final_state):
     }
 
 
+def _is_chinese(text):
+    """True when the question is Chinese (for friendly messages)."""
+    try:
+        from planner import detect_language
+
+        return detect_language(text or "") == "zh"
+    except Exception:
+        return any("\u4e00" <= ch <= "\u9fff" for ch in (text or ""))
+
+
 def default_report_runner(question):
     """Run the real full graph for one question, return final_state."""
     try:
@@ -243,6 +253,36 @@ def default_report_runner(question):
     try:
         with get_connection() as conn:
             final_state = run_full_graph(conn, question, thread_id=f"api-{uuid.uuid4().hex}")
+    except Exception as exc:  # noqa: BLE001 - API must report, not crash, on a runner failure
+        return {"error": f"runner_failed:{type(exc).__name__}:{exc}", "question": question}
+    final_state = dict(final_state)
+    final_state["question"] = question
+    return final_state
+
+
+def default_report_runner_with_plan(question, plan):
+    """Run the real full graph with a precomputed match plan.
+
+    The router already classified the question and built the
+    plan, so the graph's planner node returns it instead of
+    planning a second time. Used only for kind "match".
+    """
+    try:
+        from db import get_connection
+    except ImportError as exc:
+        return {"error": f"db_helper_not_installed:{exc}", "question": question}
+    try:
+        from full_graph import run_full_graph
+    except ImportError as exc:
+        return {"error": f"full_graph_not_installed:{exc}", "question": question}
+    try:
+        with get_connection() as conn:
+            final_state = run_full_graph(
+                conn,
+                question,
+                thread_id=f"api-{uuid.uuid4().hex}",
+                planner_with_source=lambda _q: (plan, "router"),
+            )
     except Exception as exc:  # noqa: BLE001 - API must report, not crash, on a runner failure
         return {"error": f"runner_failed:{type(exc).__name__}:{exc}", "question": question}
     final_state = dict(final_state)
@@ -275,6 +315,9 @@ def create_app(graph_runner=None):
 
     class ReportRequest(BaseModel):
         question: str
+        player_a: str | None = None
+        player_b: str | None = None
+        surface: str | None = None
 
     @app.get("/health")
     def health():
@@ -285,9 +328,58 @@ def create_app(graph_runner=None):
         question = (request.question or "").strip()
         if not question:
             raise HTTPException(status_code=422, detail={"error": "empty_question"})
+        context = {
+            "player_a": (request.player_a or "").strip() or None,
+            "player_b": (request.player_b or "").strip() or None,
+            "surface": (request.surface or "").strip() or None,
+        }
+        # Route the question: match prediction, open tennis
+        # question, or out of scope. Out of scope gets a
+        # friendly message, never a raw error code.
+        try:
+            from planner_llm import classify_question
+        except ImportError as exc:
+            raise HTTPException(
+                status_code=422, detail={"error": f"planner_not_installed:{exc}"}
+            ) from exc
+        kind, plan = classify_question(question, context)
+        if kind == "out_of_scope":
+            zh = _is_chinese(question)
+            message = (
+                "这个问题不在网球范围内，我只回答网球或网球市场的问题。"
+                if zh
+                else "That question is outside tennis. I only answer tennis or tennis market questions."
+            )
+            return {"kind": "out_of_scope", "question": question, "message": message}
+        if kind == "open":
+            try:
+                from ask import answer_open_question
+                from db import get_connection
+            except ImportError as exc:
+                raise HTTPException(
+                    status_code=422, detail={"error": f"ask_not_installed:{exc}"}
+                ) from exc
+            try:
+                with get_connection() as conn:
+                    result = answer_open_question(conn, question, context)
+            except Exception as exc:  # noqa: BLE001 - API must report, not crash, on a runner failure
+                raise HTTPException(
+                    status_code=422,
+                    detail={"error": f"runner_failed:{type(exc).__name__}:{exc}"},
+                ) from exc
+            if "error" in result:
+                raise HTTPException(
+                    status_code=422, detail={"error": result["error"]}
+                )
+            return {"kind": "answer", "question": question, "text": result["text"], "facts": result["facts"]}
+        # Match prediction: run the verified full graph, with the
+        # precomputed plan so the graph does not plan twice.
         runner = app.state.graph_runner or default_report_runner
         try:
-            final_state = runner(question)
+            if runner is default_report_runner:
+                final_state = default_report_runner_with_plan(question, plan)
+            else:
+                final_state = runner(question)
         except Exception as exc:  # noqa: BLE001 - API must report, not crash, on a runner failure
             raise HTTPException(
                 status_code=422,
@@ -296,6 +388,8 @@ def create_app(graph_runner=None):
         status_code, payload = build_report_response(final_state)
         if status_code != 200:
             raise HTTPException(status_code=status_code, detail=payload)
+        payload = dict(payload)
+        payload["kind"] = "match"
         return payload
 
     @app.get("/market")
