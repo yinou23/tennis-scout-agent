@@ -31,7 +31,7 @@ textarea { resize: vertical; }
 .seg-btn { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; font-size: 14px; margin-top: 0; padding: 8px 14px; width: auto; }
 .seg-btn:hover:not(:disabled) { background: #263248; }
 .seg-btn.seg-active { background: #14532d; border-color: #22c55e; color: #bbf7d0; }
-.generate-btn { margin-top: 0; width: auto; }
+.generate-btn { font-size: 14px; margin-top: 0; padding: 8px 14px; width: auto; }
 button { background: #15803d; border: 0; border-radius: 8px; color: #fff; cursor: pointer; font-size: 16px; font-weight: 600; margin-top: 12px; padding: 12px 20px; }
 button:hover:not(:disabled) { background: #166534; }
 button:disabled { background: #4b5563; cursor: default; }
@@ -69,7 +69,7 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .avatar { border-radius: 50%; display: block; height: 72px; margin: 0 auto 6px; object-fit: cover; width: 72px; }
 .avatar-flip { transform: scaleX(-1); }
 .avatar-lg { -webkit-mask-image: radial-gradient(circle closest-side, #000 72%, transparent 95%); height: 176px; mask-image: radial-gradient(circle closest-side, #000 72%, transparent 95%); width: 176px; }
-.matches { margin-top: 20px; }
+.matches { margin-bottom: 20px; margin-top: 20px; }
 .matches-note { color: #94a3b8; font-size: 14px; margin: 4px 0 0; }
 .matches-grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
 .fixture-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; color: #e2e8f0; cursor: pointer; margin-top: 0; padding: 14px 16px; text-align: left; width: 100%; }
