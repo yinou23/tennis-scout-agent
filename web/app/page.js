@@ -122,8 +122,6 @@ const STRINGS = {
     marketKalshi: "Kalshi",
     marketUnavailable: "市场数据暂时不可用",
     marketLoading: "正在拉取市场数据",
-    marketRefresh: "刷新",
-    marketRefreshing: "正在刷新",
     marketUpdated: "上次更新",
     marketUpdateFailed: "更新失败，显示旧数据",
     marketAutoRefresh: "自动刷新",
@@ -192,8 +190,6 @@ const STRINGS = {
     marketKalshi: "Kalshi",
     marketUnavailable: "Market data unavailable",
     marketLoading: "Loading market data",
-    marketRefresh: "Refresh",
-    marketRefreshing: "Refreshing",
     marketUpdated: "Last updated",
     marketUpdateFailed: "Refresh failed, showing older data",
     marketAutoRefresh: "Auto refresh",
@@ -506,7 +502,6 @@ export default function Home() {
   const [marketPair, setMarketPair] = useState(null);
   const [marketUpdatedAt, setMarketUpdatedAt] = useState(null);
   const [marketAuto, setMarketAuto] = useState(true);
-  const [marketRefreshing, setMarketRefreshing] = useState(false);
   const [marketRefreshFailed, setMarketRefreshFailed] = useState(false);
   const [matches, setMatches] = useState({ status: "idle", rows: [] });
 
@@ -588,7 +583,6 @@ export default function Home() {
     // them when the new fetch succeeds. A failed refresh keeps
     // the old numbers and says so, instead of blanking the card.
     if (!silent) setMarket({ status: "loading", rows: [] });
-    else setMarketRefreshing(true);
     setMarketPair({ a, b });
     try {
       const url = `${API_URL}/market?player_a=${encodeURIComponent(a)}&player_b=${encodeURIComponent(b)}`;
@@ -605,13 +599,7 @@ export default function Home() {
       } else {
         setMarket({ status: "unavailable", rows: [] });
       }
-    } finally {
-      if (silent) setMarketRefreshing(false);
     }
-  }
-
-  function onRefreshMarket() {
-    if (marketPair) fetchMarket(marketPair.a, marketPair.b, { silent: true });
   }
 
   // Apply a report response (from /report or from the pre-generated
@@ -870,9 +858,6 @@ export default function Home() {
                   <Tip text={t.marketNote}>{t.market}</Tip>
                 </h3>
                 <div className="market-controls">
-                  <button type="button" onClick={onRefreshMarket} disabled={!marketPair || marketRefreshing}>
-                    {marketRefreshing ? t.marketRefreshing : t.marketRefresh}
-                  </button>
                   <button type="button" onClick={() => setMarketAuto(!marketAuto)} aria-pressed={marketAuto}>
                     {t.marketAutoRefresh}: {marketAuto ? t.marketAutoOn : t.marketAutoOff}
                   </button>
