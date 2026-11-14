@@ -123,10 +123,11 @@ const STRINGS = {
     marketUnavailable: "市场数据暂时不可用",
     marketLoading: "正在拉取市场数据",
     marketUpdated: "上次更新",
+    updatedJustNow: "刚刚",
+    updatedMinAgo: "分钟前",
+    updatedHrAgo: "小时前",
     marketUpdateFailed: "更新失败，显示旧数据",
     marketAutoRefresh: "自动刷新",
-    marketAutoOn: "开",
-    marketAutoOff: "关",
     fullReport: "完整报告",
     sources: "来源与核查",
     verificationPassed: "核查通过",
@@ -191,10 +192,11 @@ const STRINGS = {
     marketUnavailable: "Market data unavailable",
     marketLoading: "Loading market data",
     marketUpdated: "Last updated",
+    updatedJustNow: "just now",
+    updatedMinAgo: "min ago",
+    updatedHrAgo: "hr ago",
     marketUpdateFailed: "Refresh failed, showing older data",
     marketAutoRefresh: "Auto refresh",
-    marketAutoOn: "On",
-    marketAutoOff: "Off",
     fullReport: "Full report",
     sources: "Sources and verification",
     verificationPassed: "Verification passed",
@@ -275,6 +277,18 @@ function asPct(value) {
   const n = Number(value);
   if (Number.isFinite(n)) return `${Math.round(n * 100)}%`;
   return String(value);
+}
+
+// Relative update time: "just now", "2 min ago", "1 hr ago".
+// Takes the strings object so both languages work.
+function relativeUpdatedAt(date, t) {
+  if (!date) return "";
+  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (seconds < 60) return t.updatedJustNow;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} ${t.updatedMinAgo}`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours} ${t.updatedHrAgo}`;
 }
 
 function asInt(value) {
@@ -501,6 +515,13 @@ export default function Home() {
   const [market, setMarket] = useState({ status: "idle", rows: [] });
   const [marketPair, setMarketPair] = useState(null);
   const [marketUpdatedAt, setMarketUpdatedAt] = useState(null);
+  // Re-render every 30s so the relative "updated X min ago" stays fresh
+  // even when auto refresh is off and no new market data arrives.
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setNowTick((v) => v + 1), 30 * 1000);
+    return () => clearInterval(id);
+  }, []);
   const [marketAuto, setMarketAuto] = useState(true);
   const [marketRefreshFailed, setMarketRefreshFailed] = useState(false);
   const [matches, setMatches] = useState({ status: "idle", rows: [] });
@@ -857,12 +878,12 @@ export default function Home() {
                 <h3>
                   <Tip text={t.marketNote}>{t.market}</Tip>
                 </h3>
+                <button type="button" className={`market-toggle${marketAuto ? " market-toggle-on" : ""}`} role="switch" aria-checked={marketAuto} aria-label={t.marketAutoRefresh} onClick={() => setMarketAuto(!marketAuto)}>
+                  <span className="market-toggle-knob" />
+                </button>
                 <div className="market-controls">
-                  <button type="button" onClick={() => setMarketAuto(!marketAuto)} aria-pressed={marketAuto}>
-                    {t.marketAutoRefresh}: {marketAuto ? t.marketAutoOn : t.marketAutoOff}
-                  </button>
                   {marketUpdatedAt && (
-                    <span>{t.marketUpdated}: {marketUpdatedAt.toLocaleTimeString()}</span>
+                    <span>{t.marketUpdated} {relativeUpdatedAt(marketUpdatedAt, t)}</span>
                   )}
                 </div>
               </div>
@@ -887,7 +908,6 @@ export default function Home() {
                       return (
                         <div className="market-row" key={p.name}>
                           <span className="market-player">{lastName(p.name)}</span>
-                          <span className="market-model">{p.model !== null && p.model !== undefined ? `${Math.round(p.model * 100)}%` : "-"}</span>
                           <span className={`market-pill market-pill-poly${p.poly === null || p.poly === undefined ? " market-pill-none" : ""}`}>{p.poly !== null && p.poly !== undefined ? `${Math.round(p.poly * 100)}%` : "-"}</span>
                           <span className={`market-pill market-pill-kalshi${p.kalshi === null || p.kalshi === undefined ? " market-pill-none" : ""}`}>{p.kalshi !== null && p.kalshi !== undefined ? `${Math.round(p.kalshi * 100)}%` : "-"}</span>
                           <span className={`market-diff${notable ? " market-diff-notable" : ""}`}>{diff !== null ? `${diff > 0 ? "+" : ""}${diff}%` : "-"}</span>
