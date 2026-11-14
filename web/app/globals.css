@@ -49,7 +49,7 @@ section.card p, section.card li { color: #1f2937; line-height: 1.65; }
 section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .dashboard-grid { display: grid; gap: 20px; grid-template-columns: 1.6fr 1fr; margin-top: 20px; }
 .dashboard-grid section.card { margin-top: 0; }
-.gauge-wrap { background: linear-gradient(90deg, rgba(247,247,245,0) 0, #f7f7f5 20px, #f7f7f5 calc(100% - 20px), rgba(247,247,245,0) 100%); margin: 0 -48px; position: relative; text-align: center; z-index: 1; }
+.gauge-wrap { background: linear-gradient(90deg, rgba(247,247,245,0) 0, #f7f7f5 20px, #f7f7f5 calc(100% - 20px), rgba(247,247,245,0) 100%); margin: 0 -72px; position: relative; text-align: center; z-index: 1; }
 .gauge-number { font-size: 28px; font-weight: 700; left: 50%; position: absolute; top: 87%; transform: translate(-50%, -50%); z-index: 5; }
 .matchup-title { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; text-align: center; }
 .surface-chip { border: 1px solid #d1d5db; border-radius: 999px; color: #374151; font-size: 12px; font-weight: 600; padding: 3px 8px; }
