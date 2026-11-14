@@ -86,8 +86,8 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .fixture-player { align-items: center; display: flex; font-size: 17px; font-weight: 700; gap: 8px; }
 .fixture-player .avatar { height: 34px; margin: 0; width: 34px; }
 .fixture-vs { color: #94a3b8; font-size: 14px; font-weight: 600; }
-.fixture-odds { margin-top: 8px; }
-.fixture-pill { background: #0f172a; border: 1px solid #334155; border-radius: 999px; color: #cbd5e1; display: inline-block; font-size: 13px; padding: 4px 10px; }
+.fixture-pill-inline { background: #dbeafe; border-radius: 999px; color: #1e40af; font-size: 13px; font-weight: 600; margin-left: 8px; padding: 2px 8px; white-space: nowrap; }
+.fixture-pill-none { background: #f3f4f6; color: #9ca3af; }
 .market-empty { border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px; margin: 12px 0 0; padding-top: 12px; }
 .side-table { border-collapse: collapse; width: 100%; }
 .side-table th, .side-table td { border-bottom: 1px solid #e5e7eb; font-size: 14px; padding: 8px 4px; text-align: left; vertical-align: middle; }

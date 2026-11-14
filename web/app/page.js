@@ -769,9 +769,6 @@ export default function Home() {
           <div className="matches-grid">
             {matches.rows.map((m) => {
               const poly = m.polymarket || null;
-              const fav = poly && poly.prob_a !== undefined && poly.prob_b !== undefined
-                ? (Number(poly.prob_a) >= Number(poly.prob_b) ? { name: m.player_a, prob: poly.prob_a } : { name: m.player_b, prob: poly.prob_b })
-                : null;
               const active = playerA.trim() === m.player_a && playerB.trim() === m.player_b;
               const when = m.start_time ? new Date(m.start_time).toLocaleString(lang === "zh" ? "zh-CN" : "en-US", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) : null;
               const surname = (name) => String(name).trim().split(/\s+/).pop();
@@ -792,19 +789,17 @@ export default function Home() {
                     <span className="fixture-player">
                       <Avatar name={m.player_a} />
                       {surname(m.player_a)}
+                      {poly && poly.prob_a !== undefined ? (
+                        <span className="fixture-pill-inline">{Math.round(Number(poly.prob_a) * 100)}%</span>
+                      ) : (
+                        <span className="fixture-pill-inline fixture-pill-none">-</span>
+                      )}
                     </span>
                     <span className="fixture-vs">vs</span>
                     <span className="fixture-player">
                       <Avatar name={m.player_b} flip />
                       {surname(m.player_b)}
                     </span>
-                  </div>
-                  <div className="fixture-odds">
-                    {fav ? (
-                      <span className="fixture-pill">Polymarket {surname(fav.name)} {Math.round(Number(fav.prob) * 100)}%</span>
-                    ) : (
-                      <span className="fixture-pill">Polymarket {t.noQuote}</span>
-                    )}
                   </div>
                 </button>
               );
