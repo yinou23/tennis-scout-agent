@@ -76,6 +76,7 @@ What this file does NOT do:
   not a made-up number.
 """
 
+import gzip
 import json
 import urllib.parse
 import urllib.request
@@ -324,17 +325,29 @@ def _kalshi_event_matches(event_ticker, player_a, player_b):
 
 
 def _default_http_get(url, timeout=TIMEOUT_SECONDS):
-    """Fetch a URL and return parsed JSON. Raises on HTTP error."""
+    """Fetch a URL and return parsed JSON. Raises on HTTP error.
+
+    Sends Accept-Encoding: gzip and decompresses a gzip
+    response. Polymarket Gamma requires gzip for /events
+    pages with limit above 50 and returns 406 without it,
+    which made /matches return an empty list.
+    """
     request = urllib.request.Request(
         url,
-        headers={"User-Agent": "TSA-market-odds/1.0 (read-only)"},
+        headers={
+            "User-Agent": "TSA-market-odds/1.0 (read-only)",
+            "Accept-Encoding": "gzip",
+        },
         method="GET",
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
         status = getattr(response, "status", 200)
         if status != 200:
             raise RuntimeError(f"http_error:{status}")
-        return json.loads(response.read().decode("utf-8"))
+        raw = response.read()
+        if response.headers.get("Content-Encoding") == "gzip":
+            raw = gzip.decompress(raw)
+        return json.loads(raw.decode("utf-8"))
 
 
 def _as_float(value):
