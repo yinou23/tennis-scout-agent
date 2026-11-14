@@ -537,12 +537,15 @@ export default function Home() {
           setAdvanced("");
           onGenerate({ a: rows[0].player_a, b: rows[0].player_b }, { scroll: false });
         } else {
-          onGenerate(null, { scroll: false });
+          // No upcoming match: the default is Sinner / Hard /
+          // Alcaraz, which is pre-generated, so load the cached
+          // report instead of running /report again.
+          loadCachedDefault();
         }
       })
       .catch(() => {
         setMatches({ status: "unavailable", rows: [] });
-        onGenerate(null, { scroll: false });
+        loadCachedDefault();
       });
   }, []);
 
@@ -613,6 +616,51 @@ export default function Home() {
     if (marketPair) fetchMarket(marketPair.a, marketPair.b, { silent: true });
   }
 
+  // Apply a report response (from /report or from the pre-generated
+  // default-report.json) to state. Shared by onGenerate and
+  // loadCachedDefault so both paths show the same dashboard.
+  function applyReport(data, a, b, opts) {
+    setReport(data);
+    // Market is separate and non blocking. Use the player names
+    // from the report plan when present, else the selectors.
+    const pa = (data.plan && data.plan.player_a) || a;
+    const pb = (data.plan && data.plan.player_b) || b;
+    fetchMarket(pa, pb);
+    // The dashboard only exists once a report is set, so
+    // scroll to it here, after the report lands. The initial
+    // auto-generate on page load does not scroll: the user
+    // opened the page at the top.
+    if (!opts || opts.scroll !== false) {
+      const el = document.getElementById("dashboard");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  // Load the pre-generated default report (Sinner / Hard /
+  // Alcaraz) from the static file instead of calling /report.
+  // The numbers come from the database as of 2026-05-25 and
+  // never move, so a cached copy is correct until the database
+  // is updated, at which point default-report.json is
+  // regenerated. If the file is missing, fall back to /report.
+  async function loadCachedDefault() {
+    setLoading(true);
+    setError(null);
+    setReport(null);
+    setMarket({ status: "idle", rows: [] });
+    try {
+      const res = await fetch("/default-report.json");
+      if (!res.ok) throw new Error(`default report ${res.status}`);
+      const data = await res.json();
+      if (!data || data.error || !data.summary) throw new Error("default report invalid");
+      applyReport(data, "Jannik Sinner", "Carlos Alcaraz", { scroll: false });
+      setLoading(false);
+    } catch (e) {
+      // Fall back to /report. onGenerate manages loading itself,
+      // so do not clear it here.
+      onGenerate(null, { scroll: false });
+    }
+  }
+
   async function onGenerate(override, opts) {
     const a = (override && override.a ? override.a : playerA).trim();
     const b = (override && override.b ? override.b : playerB).trim();
@@ -648,20 +696,7 @@ export default function Home() {
         });
         return;
       }
-      setReport(data);
-      // Market is separate and non blocking. Use the player names
-      // from the report plan when present, else the selectors.
-      const pa = (data.plan && data.plan.player_a) || a;
-      const pb = (data.plan && data.plan.player_b) || b;
-      fetchMarket(pa, pb);
-      // The dashboard only exists once a report is set, so
-      // scroll to it here, after the report lands. The initial
-      // auto-generate on page load does not scroll: the user
-      // opened the page at the top.
-      if (!opts || opts.scroll !== false) {
-        const el = document.getElementById("dashboard");
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      applyReport(data, a, b, opts);
     } catch (e) {
       setError({ message: `${t.networkError} ${String(e)}` });
     } finally {
@@ -774,19 +809,18 @@ export default function Home() {
       <div className="form-row">
         <input id="player-a" type="text" list="player-list" value={playerA} onChange={(e) => setPlayerA(e.target.value)} aria-label={t.playerA} />
         <input id="player-b" type="text" list="player-list" value={playerB} onChange={(e) => setPlayerB(e.target.value)} aria-label={t.playerB} />
-        <div className="seg-group" role="group" aria-label={t.surface}>
-          {[["", t.surfaceAny], ["Hard", "Hard"], ["Clay", "Clay"], ["Grass", "Grass"], ["Carpet", "Carpet"]].map(([value, label]) => (
-            <button
-              key={value || "any"}
-              type="button"
-              className={`seg-btn${surface === value ? " seg-active" : ""}`}
-              aria-pressed={surface === value}
-              onClick={() => setSurface(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <select
+          className="surface-select"
+          value={surface}
+          onChange={(e) => setSurface(e.target.value)}
+          aria-label={t.surface}
+        >
+          <option value="">{t.surfaceAny}</option>
+          <option value="Hard">Hard</option>
+          <option value="Clay">Clay</option>
+          <option value="Grass">Grass</option>
+          <option value="Carpet">Carpet</option>
+        </select>
         <button className="generate-btn" onClick={() => onGenerate()} disabled={loading}>{loading ? t.generating : t.generate}</button>
       </div>
       <datalist id="player-list">

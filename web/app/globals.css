@@ -27,10 +27,7 @@ input[type="text"]::placeholder, textarea::placeholder { color: #9ca3af; }
 textarea { resize: vertical; }
 .form-row { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; }
 .form-row input[type="text"] { flex: 1 1 140px; min-width: 0; width: auto; }
-.seg-group { display: flex; flex-wrap: wrap; gap: 8px; }
-.seg-btn { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; font-size: 14px; margin-top: 0; padding: 8px 14px; width: auto; }
-.seg-btn:hover:not(:disabled) { background: #263248; }
-.seg-btn.seg-active { background: #14532d; border-color: #22c55e; color: #bbf7d0; }
+.surface-select { flex: 0 0 auto; font-size: 14px; margin-top: 0; padding: 8px 10px; width: auto; }
 .generate-btn { font-size: 14px; margin-top: 0; padding: 8px 14px; width: auto; }
 button { background: #15803d; border: 0; border-radius: 8px; color: #fff; cursor: pointer; font-size: 16px; font-weight: 600; margin-top: 12px; padding: 12px 20px; }
 button:hover:not(:disabled) { background: #166534; }
@@ -116,6 +113,7 @@ details.card ul { margin: 8px 0 0; padding-left: 20px; }
 @media (max-width: 640px) {
   .form-row { align-items: stretch; flex-direction: column; }
   .form-row input[type="text"] { width: 100%; }
+  .surface-select { width: 100%; }
   .generate-btn { width: 100%; }
   .market-grid { grid-template-columns: 1fr; }
   h1 { font-size: 26px; }
