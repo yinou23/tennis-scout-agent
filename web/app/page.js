@@ -115,7 +115,6 @@ const STRINGS = {
     last10Info: "最近 2 个月内的胜率；如果超过 10 场，只算最近 10 场。",
     h2h: "H2H",
     h2hInfo: "两人历史交手的胜负场次。",
-    market: "市场",
     marketNote: "市场概率是投注市场投出来的，和模型概率是两回事，只做对照，不混在一起。只读行情，不下单。蓝色胶囊是 Polymarket，橙色胶囊是 Kalshi；差值是市场均价减模型概率。",
     marketEmpty: "Polymarket、Kalshi 暂无市场",
     marketPolymarket: "Polymarket",
@@ -184,7 +183,6 @@ const STRINGS = {
     last10Info: "Win rate in the last 2 months; if more than 10 matches, only the last 10 count.",
     h2h: "H2H",
     h2hInfo: "Head-to-head wins for each side.",
-    market: "Market",
     marketNote: "Market probabilities come from betting markets. They are separate from the model probability, shown only for comparison. Read-only prices, no trading. Blue pill is Polymarket, orange pill is Kalshi; the diff is the market average minus the model probability.",
     marketEmpty: "No markets on Polymarket or Kalshi",
     marketPolymarket: "Polymarket",
@@ -873,9 +871,7 @@ export default function Home() {
             ) : (
             <div className="market-in-gauge">
               <div className="market-table">
-                <h3 className="market-title">
-                  <Tip text={t.marketNote}>{t.market}</Tip>
-                </h3>
+                <span aria-hidden="true" />
                 <span className="market-col-label">{t.marketPolymarket}</span>
                 <span className="market-col-label">{t.marketKalshi}</span>
                 <div className="market-controls">
@@ -1003,6 +999,7 @@ export default function Home() {
           <p>{t.langGraph}: {report.graph_used_langgraph ? t.yes : t.no}</p>
           <p>{t.datasetLine}</p>
           <p>{t.footnote}</p>
+          <p>{t.marketNote}</p>
           {report.verification && (
             <ul>
               {verificationItems(report.verification, t).map((item) => (
