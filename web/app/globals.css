@@ -27,7 +27,7 @@ input[type="text"]::placeholder, textarea::placeholder { color: #9ca3af; }
 textarea { resize: vertical; }
 .form-row { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; }
 .form-row input[type="text"] { flex: 1 1 140px; min-width: 0; width: auto; }
-.surface-select { flex: 0 0 auto; font-size: 14px; margin-top: 0; padding: 8px 10px; width: auto; }
+.surface-select { flex: 0 0 auto; margin-top: 0; width: auto; }
 .generate-btn { font-size: 14px; margin-top: 0; padding: 8px 14px; width: auto; }
 button { background: #15803d; border: 0; border-radius: 8px; color: #fff; cursor: pointer; font-size: 16px; font-weight: 600; margin-top: 12px; padding: 12px 20px; }
 button:hover:not(:disabled) { background: #166534; }
