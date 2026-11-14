@@ -705,9 +705,10 @@ export default function Home() {
             <span className={`dot ${connected ? "dot-ok" : "dot-bad"}`} />
             {connected === null ? "..." : connected ? t.connected : t.notConnected}
           </span>
-          <button type="button" className="lang-toggle" onClick={() => setLang(lang === "zh" ? "en" : "zh")}>
-            {lang === "zh" ? "English" : "中文"}
-          </button>
+          <div className="lang-switch" role="group" aria-label="Language">
+            <button type="button" className={lang === "en" ? "lang-opt active" : "lang-opt"} onClick={() => setLang("en")}>EN</button>
+            <button type="button" className={lang === "zh" ? "lang-opt active" : "lang-opt"} onClick={() => setLang("zh")}>CN</button>
+          </div>
         </div>
       </header>
 
@@ -819,11 +820,12 @@ export default function Home() {
         <div className="dashboard-grid" id="dashboard">
           <section className="card gauge-card">
             <h2 className="matchup-title">
-              <span className={summary.favorite === summary.player_a.name ? "fav-name" : ""}>{summary.player_a.name || "-"}</span>
               {surfaceChip(summary.surface, lang) && <span className="surface-chip">{surfaceChip(summary.surface, lang)}</span>}
-              <span className={summary.favorite === summary.player_b.name ? "fav-name" : ""}>{summary.player_b.name || "-"}</span>
             </h2>
             <div className="gauge-zone">
+              <span className={`gauge-name${summary.favorite === summary.player_a.name ? " fav-name" : ""}`}>{summary.player_a.name || "-"}</span>
+              <span aria-hidden="true" />
+              <span className={`gauge-name${summary.favorite === summary.player_b.name ? " fav-name" : ""}`}>{summary.player_b.name || "-"}</span>
               <Avatar name={summary.player_a.name} large />
               <Gauge summary={summary} t={t} favProb={favProb} />
               <Avatar name={summary.player_b.name} flip large />
@@ -947,9 +949,9 @@ export default function Home() {
 
       {report && (
         <details className="card">
-          <summary>
-            {t.sources}: {verOk ? t.verificationPassed : t.verificationFailed}, {t.model}: {report.llm_model || "-"}, {t.dataCutoff}
-          </summary>
+          <summary>{t.sources}</summary>
+          <p>{verOk ? t.verificationPassed : t.verificationFailed}</p>
+          <p>{t.dataCutoff}</p>
           <p>
             {t.plannerSource}: {report.planner_source}
           </p>

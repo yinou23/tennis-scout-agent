@@ -9,8 +9,11 @@ main { margin: 0 auto; max-width: 1060px; padding: 28px 16px 56px; }
 .topbar { align-items: center; border-bottom: 1px solid #263248; display: flex; justify-content: space-between; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; }
 .topbar-right { align-items: center; display: flex; gap: 8px; }
 .status-pill { align-items: center; background: #1e293b; border: 1px solid #475569; border-radius: 999px; color: #e2e8f0; display: flex; font-size: 13px; gap: 8px; padding: 6px 12px; }
-.lang-toggle { background: #1e293b; border: 1px solid #334155; border-radius: 999px; color: #e2e8f0; cursor: pointer; font-size: 14px; margin-top: 0; padding: 8px 14px; }
-.lang-toggle:hover { border-color: #4ade80; }
+.lang-switch { background: #1e293b; border: 1px solid #334155; border-radius: 999px; display: flex; padding: 2px; }
+.lang-opt { background: transparent; border: 0; border-radius: 999px; color: #94a3b8; cursor: pointer; font-size: 12px; font-weight: 600; margin-top: 0; padding: 4px 8px; }
+.lang-opt.active { background: #4ade80; color: #0f172a; }
+.lang-switch .lang-opt:hover { background: transparent; color: #e2e8f0; }
+.lang-switch .lang-opt.active:hover { background: #4ade80; color: #0f172a; }
 h1 { color: #ffffff; font-size: 32px; line-height: 1.2; margin: 0; }
 .title-agent { color: #4ade80; }
 .dot { border-radius: 50%; display: inline-block; height: 10px; width: 10px; }
@@ -47,10 +50,11 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .dashboard-grid { display: grid; gap: 20px; grid-template-columns: 1.6fr 1fr; margin-top: 20px; }
 .dashboard-grid section.card { margin-top: 0; }
 .gauge-wrap { background: linear-gradient(90deg, rgba(247,247,245,0) 0, #f7f7f5 20px, #f7f7f5 calc(100% - 20px), rgba(247,247,245,0) 100%); margin: 0 -48px; position: relative; text-align: center; z-index: 1; }
-.gauge-number { font-size: 28px; font-weight: 700; left: 50%; position: absolute; top: 56%; transform: translate(-50%, -50%); z-index: 5; }
+.gauge-number { font-size: 28px; font-weight: 700; left: 50%; position: absolute; top: 87%; transform: translate(-50%, -50%); z-index: 5; }
 .matchup-title { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; text-align: center; }
 .surface-chip { border: 1px solid #d1d5db; border-radius: 999px; color: #374151; font-size: 12px; font-weight: 600; padding: 3px 8px; }
 .gauge-zone { align-items: center; display: grid; gap: 8px; grid-template-columns: auto 1fr auto; }
+.gauge-name { font-size: 17px; font-weight: 700; text-align: center; }
 .gauge-zone .avatar { margin: 0; }
 .market-in-gauge { border-top: 1px solid #e5e7eb; margin-top: 12px; padding-top: 12px; }
 .market-in-gauge h3 { font-size: 16px; margin: 0 0 4px; }
