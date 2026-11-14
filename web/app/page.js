@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 // Week 9 Step 3: gauge dashboard, side list, bilingual UI, player
@@ -128,6 +128,7 @@ const STRINGS = {
     updatedHrAgo: "小时前",
     marketUpdateFailed: "更新失败，显示旧数据",
     marketAutoRefresh: "自动刷新",
+    marketAutoShort: "自动",
     fullReport: "完整报告",
     sources: "来源与核查",
     verificationPassed: "核查通过",
@@ -197,6 +198,7 @@ const STRINGS = {
     updatedHrAgo: "hr ago",
     marketUpdateFailed: "Refresh failed, showing older data",
     marketAutoRefresh: "Auto refresh",
+    marketAutoShort: "Auto",
     fullReport: "Full report",
     sources: "Sources and verification",
     verificationPassed: "Verification passed",
@@ -754,6 +756,12 @@ export default function Home() {
             <span className={`dot ${connected ? "dot-ok" : "dot-bad"}`} />
             {connected === null ? "..." : connected ? t.connected : t.notConnected}
           </span>
+          <label className="header-auto">
+            <span>{t.marketAutoShort}</span>
+            <button type="button" className={`market-toggle${marketAuto ? " market-toggle-on" : ""}`} role="switch" aria-checked={marketAuto} aria-label={t.marketAutoRefresh} onClick={() => setMarketAuto(!marketAuto)}>
+              <span className="market-toggle-knob" />
+            </button>
+          </label>
           <div className="lang-switch" role="group" aria-label="Language">
             <button type="button" className={lang === "en" ? "lang-opt active" : "lang-opt"} onClick={() => setLang("en")}>EN</button>
             <button type="button" className={lang === "zh" ? "lang-opt active" : "lang-opt"} onClick={() => setLang("zh")}>CN</button>
@@ -869,49 +877,44 @@ export default function Home() {
               <p className="market-empty">{t.marketEmpty}</p>
             ) : (
             <div className="market-in-gauge">
-              <div className="market-head">
-                <h3>
+              <div className="market-table">
+                <h3 className="market-title">
                   <Tip text={t.marketNote}>{t.market}</Tip>
                 </h3>
-                <button type="button" className={`market-toggle${marketAuto ? " market-toggle-on" : ""}`} role="switch" aria-checked={marketAuto} aria-label={t.marketAutoRefresh} onClick={() => setMarketAuto(!marketAuto)}>
-                  <span className="market-toggle-knob" />
-                </button>
+                <span className="market-col-label">{t.marketPolymarket}</span>
+                <span className="market-col-label">{t.marketKalshi}</span>
                 <div className="market-controls">
                   {marketUpdatedAt && (
                     <span>{t.marketUpdated} {relativeUpdatedAt(marketUpdatedAt, t)}</span>
                   )}
                 </div>
+                {marketRefreshFailed && <p className="market-status">{t.marketUpdateFailed}</p>}
+                {market.status === "loading" && <p className="market-status">{t.marketLoading}</p>}
+                {market.status === "unavailable" && <p className="market-status">{t.marketUnavailable}</p>}
+                {market.status === "done" && (() => {
+                  const lastName = (name) => String(name || "").trim().split(/\s+/).pop() || "-";
+                  const polyRow = market.rows.find((r) => /polymarket/i.test(r.source || ""));
+                  const kalshiRow = market.rows.find((r) => /kalshi/i.test(r.source || ""));
+                  const players = [
+                    { name: marketNameA, model: asNumber(summary.prob_a_calibrated), poly: polyRow ? asNumber(polyRow.prob_a) : null, kalshi: kalshiRow ? asNumber(kalshiRow.prob_a) : null },
+                    { name: marketNameB, model: asNumber(summary.prob_b_calibrated), poly: polyRow ? asNumber(polyRow.prob_b) : null, kalshi: kalshiRow ? asNumber(kalshiRow.prob_b) : null },
+                  ];
+                  return players.map((p) => {
+                    const markets = [p.poly, p.kalshi].filter((v) => v !== null && v !== undefined);
+                    const avg = markets.length ? markets.reduce((s, v) => s + v, 0) / markets.length : null;
+                    const diff = avg !== null && p.model !== null && p.model !== undefined ? Math.round((avg - p.model) * 100) : null;
+                    const notable = diff !== null && Math.abs(diff) > 5;
+                    return (
+                      <Fragment key={p.name}>
+                        <span className="market-player">{lastName(p.name)}</span>
+                        <span className="market-cell"><span className={`market-pill market-pill-poly${p.poly === null || p.poly === undefined ? " market-pill-none" : ""}`}>{p.poly !== null && p.poly !== undefined ? `${Math.round(p.poly * 100)}%` : "-"}</span></span>
+                        <span className="market-cell"><span className={`market-pill market-pill-kalshi${p.kalshi === null || p.kalshi === undefined ? " market-pill-none" : ""}`}>{p.kalshi !== null && p.kalshi !== undefined ? `${Math.round(p.kalshi * 100)}%` : "-"}</span></span>
+                        <span className={`market-diff${notable ? " market-diff-notable" : ""}`}>{diff !== null ? `${diff > 0 ? "+" : ""}${diff}%` : "-"}</span>
+                      </Fragment>
+                    );
+                  });
+                })()}
               </div>
-              {marketRefreshFailed && <p>{t.marketUpdateFailed}</p>}
-              {market.status === "loading" && <p>{t.marketLoading}</p>}
-              {market.status === "unavailable" && <p>{t.marketUnavailable}</p>}
-              {market.status === "done" && (
-                <div className="market-grid">
-                  {(() => {
-                    const lastName = (name) => String(name || "").trim().split(/\s+/).pop() || "-";
-                    const polyRow = market.rows.find((r) => /polymarket/i.test(r.source || ""));
-                    const kalshiRow = market.rows.find((r) => /kalshi/i.test(r.source || ""));
-                    const players = [
-                      { name: marketNameA, model: asNumber(summary.prob_a_calibrated), poly: polyRow ? asNumber(polyRow.prob_a) : null, kalshi: kalshiRow ? asNumber(kalshiRow.prob_a) : null },
-                      { name: marketNameB, model: asNumber(summary.prob_b_calibrated), poly: polyRow ? asNumber(polyRow.prob_b) : null, kalshi: kalshiRow ? asNumber(kalshiRow.prob_b) : null },
-                    ];
-                    return players.map((p) => {
-                      const markets = [p.poly, p.kalshi].filter((v) => v !== null && v !== undefined);
-                      const avg = markets.length ? markets.reduce((s, v) => s + v, 0) / markets.length : null;
-                      const diff = avg !== null && p.model !== null && p.model !== undefined ? Math.round((avg - p.model) * 100) : null;
-                      const notable = diff !== null && Math.abs(diff) > 5;
-                      return (
-                        <div className="market-row" key={p.name}>
-                          <span className="market-player">{lastName(p.name)}</span>
-                          <span className={`market-pill market-pill-poly${p.poly === null || p.poly === undefined ? " market-pill-none" : ""}`}>{p.poly !== null && p.poly !== undefined ? `${Math.round(p.poly * 100)}%` : "-"}</span>
-                          <span className={`market-pill market-pill-kalshi${p.kalshi === null || p.kalshi === undefined ? " market-pill-none" : ""}`}>{p.kalshi !== null && p.kalshi !== undefined ? `${Math.round(p.kalshi * 100)}%` : "-"}</span>
-                          <span className={`market-diff${notable ? " market-diff-notable" : ""}`}>{diff !== null ? `${diff > 0 ? "+" : ""}${diff}%` : "-"}</span>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              )}
             </div>
             )}
           </section>
