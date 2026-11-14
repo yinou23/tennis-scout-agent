@@ -11,13 +11,14 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 // fields and shown exactly as returned. The only arithmetic allowed
 // is a display transform, documented where it is used:
 //   gauge green = the favorite's share of the arc (display only)
-//   percentage text = rate * 100, one decimal (display only)
-// In both cases the original number is shown alongside, and the
-// transform never changes the number itself. The report text is
-// never parsed. If the summary field is missing (old API), the
-// gauge, side list, and short summary are hidden, and only the
-// verbatim report is shown. The page never crashes on a missing
-// summary or a missing market field.
+//   percentage text = rate * 100, rounded to the nearest whole
+//   percent (display only); Elo shows as a whole number (display
+//   only). In both cases the original number is shown in the
+//   report text, and the transform never changes the number
+//   itself. The report text is never parsed. If the summary field
+//   is missing (old API), the gauge, side list, and short summary
+//   are hidden, and only the verbatim report is shown. The page
+//   never crashes on a missing summary or a missing market field.
 //
 // Expected summary shape (from the backend Step 3 agent):
 //   report.summary = {
@@ -97,7 +98,6 @@ const STRINGS = {
     sideList: "数据一览",
     favorite: "热门",
     probability: "概率",
-    calibratedProb: "校准概率",
     matchesLoading: "正在拉取赛程",
     matchesEmpty: "暂无即将开打的比赛",
     matchesUnavailable: "赛程暂时不可用",
@@ -111,12 +111,11 @@ const STRINGS = {
     overallElo: "Elo",
     surfaceElo: "Elo",
     surfaceRecord: "战绩",
-    surfaceRecordInfo: "该球员在这个场地上的胜负场次和胜率。",
+    surfaceRecordInfo: "该球员在这个场地上的胜率。",
     last10: "最近胜率",
-    last10Info: "最近 10 场比赛的胜率，下面是胜场数。",
+    last10Info: "最近 10 场比赛的胜率。",
     h2h: "H2H",
-    h2hInfo: "两人历史交手的胜负场次，括号里是总场数。",
-    meetings: "场",
+    h2hInfo: "两人历史交手的胜负场次。",
     market: "市场概率",
     marketNote: "市场概率是投注市场投出来的，和模型概率是两回事，只做对照，不混在一起。",
     marketReadOnly: "只读行情，不下单",
@@ -171,7 +170,6 @@ const STRINGS = {
     sideList: "At a glance",
     favorite: "Favorite",
     probability: "Probability",
-    calibratedProb: "Calibrated probability",
     matchesLoading: "Loading matches",
     matchesEmpty: "No upcoming matches",
     matchesUnavailable: "Schedule unavailable",
@@ -185,12 +183,11 @@ const STRINGS = {
     overallElo: "Elo",
     surfaceElo: "Elo",
     surfaceRecord: "record",
-    surfaceRecordInfo: "This player's win-loss record and win rate on this surface.",
+    surfaceRecordInfo: "This player's win rate on this surface.",
     last10: "Recent win rate",
-    last10Info: "Win rate over the last 10 matches; wins below.",
+    last10Info: "Win rate over the last 10 matches.",
     h2h: "H2H",
-    h2hInfo: "Head-to-head wins for each side; total meetings in parentheses.",
-    meetings: "meetings",
+    h2hInfo: "Head-to-head wins for each side.",
     market: "Market probabilities",
     marketNote: "Market probabilities come from betting markets. They are separate from the model probability, shown only for comparison.",
     marketReadOnly: "Read-only prices, no trading",
@@ -270,23 +267,20 @@ function asElo(value) {
 }
 
 function asPct(value) {
-  // Display transform only: rate 0.8149 shows as 81.5 percent.
+  // Display transform only: rate 0.8149 shows as 81 percent.
   // The original rate is kept for the bar width.
   if (value === undefined || value === null || value === "") return null;
   const n = Number(value);
-  if (Number.isFinite(n)) return `${(n * 100).toFixed(1)}%`;
+  if (Number.isFinite(n)) return `${Math.round(n * 100)}%`;
   return String(value);
 }
 
-function eloDiff(eloA, eloB) {
-  // Display transform only: the Elo gap between the two
-  // players, one decimal, with a sign. Null when either
-  // side is missing, never invented.
-  const a = asNumber(eloA);
-  const b = asNumber(eloB);
-  if (a === null || b === null) return null;
-  const diff = a - b;
-  return `${diff >= 0 ? "+" : ""}${diff.toFixed(1)}`;
+function asInt(value) {
+  // Display transform only: Elo 2283.1 shows as 2283.
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  if (Number.isFinite(n)) return `${Math.round(n)}`;
+  return String(value);
 }
 
 // Leading value in a comparison row: the larger number wins the
@@ -455,13 +449,12 @@ function Avatar({ name, flip, large }) {
 // player B (probA = 0), the centre is 50/50. The green fills the
 // favoured side's share of the arc, anchored at the favoured end,
 // so the green reads as the favourite's share. The favourite's
-// calibrated probability is printed inside the arc, where the
-// needle used to be; the needle is gone because its angle was
-// measured from the opposite end of the arc and pointed away
-// from the green's end. No 0/100 end labels: they read backwards
+// calibrated probability is printed over the arc as HTML, so the
+// number itself can carry a hover tooltip; there is no separate
+// label or info button. No 0/100 end labels: they read backwards
 // against the left-is-A scale. The original probability is shown
 // as returned, and the fill never changes the number.
-function Gauge({ summary, t, favProb, openId, setOpenId }) {
+function Gauge({ summary, t, favProb }) {
   const probA = asNumber(summary.prob_a_calibrated);
   if (probA === null) return null;
   const arcLen = 251.3;
@@ -474,27 +467,20 @@ function Gauge({ summary, t, favProb, openId, setOpenId }) {
         {greenLen > 0 && (
           <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#15803d" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${greenLen} ${arcLen}`} strokeDashoffset={-greenStart} />
         )}
-        <text x="100" y="86" textAnchor="middle" fontSize="20" fontWeight="700" fill="#111827">{favProb || "-"}</text>
       </svg>
-      <div className="gauge-label">
-        {t.calibratedProb}
-        <InfoButton id="prob" openId={openId} setOpenId={setOpenId} label="i" />
+      <div className="gauge-number">
+        <Tip text={t.probInfo}>{favProb || "-"}</Tip>
       </div>
     </div>
   );
 }
 
-function InfoButton({ id, openId, setOpenId, label }) {
+function Tip({ text, children }) {
   return (
-    <button
-      type="button"
-      className="info-btn"
-      aria-expanded={openId === id}
-      aria-label={label}
-      onClick={() => setOpenId(openId === id ? null : id)}
-    >
-      i
-    </button>
+    <span className="has-tip" tabIndex={0}>
+      {children}
+      <span className="info-tip">{text}</span>
+    </span>
   );
 }
 
@@ -509,7 +495,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState(null);
   const [error, setError] = useState(null);
-  const [openInfo, setOpenInfo] = useState(null);
   const [market, setMarket] = useState({ status: "idle", rows: [] });
   const [marketPair, setMarketPair] = useState(null);
   const [marketUpdatedAt, setMarketUpdatedAt] = useState(null);
@@ -810,24 +795,21 @@ export default function Home() {
           <section className="card gauge-card">
             <h2 className="matchup-title">
               <span className={summary.favorite === summary.player_a.name ? "fav-name" : ""}>{summary.player_a.name || "-"}</span>
-              <span className="vs-muted"> vs </span>
-              <span className={summary.favorite === summary.player_b.name ? "fav-name" : ""}>{summary.player_b.name || "-"}</span>
               {surfaceChip(summary.surface, lang) && <span className="surface-chip">{surfaceChip(summary.surface, lang)}</span>}
+              <span className={summary.favorite === summary.player_b.name ? "fav-name" : ""}>{summary.player_b.name || "-"}</span>
             </h2>
             <div className="gauge-zone">
               <Avatar name={summary.player_a.name} large />
-              <Gauge summary={summary} t={t} favProb={favProb} openId={openInfo} setOpenId={setOpenInfo} />
+              <Gauge summary={summary} t={t} favProb={favProb} />
               <Avatar name={summary.player_b.name} flip large />
             </div>
-            {openInfo === "prob" && <p className="info-text">{t.probInfo}</p>}
             {market.status === "done" && !marketHasAny ? (
               <p className="market-empty">{t.marketEmpty}</p>
             ) : (
             <div className="market-in-gauge">
               <div className="market-head">
                 <h3>
-                  {t.market}
-                  <InfoButton id="market" openId={openInfo} setOpenId={setOpenInfo} label="i" />
+                  <Tip text={t.marketNote}>{t.market}</Tip>
                 </h3>
                 <div className="market-controls">
                   <button type="button" onClick={onRefreshMarket} disabled={!marketPair || marketRefreshing}>
@@ -841,7 +823,6 @@ export default function Home() {
                   )}
                 </div>
               </div>
-              {openInfo === "market" && <p className="info-text">{t.marketNote}</p>}
               {marketRefreshFailed && <p>{t.marketUpdateFailed}</p>}
               {market.status === "loading" && <p>{t.marketLoading}</p>}
               {market.status === "unavailable" && <p>{t.marketUnavailable}</p>}
@@ -873,69 +854,46 @@ export default function Home() {
               </thead>
               <tbody>
                 <tr>
-                  <td className={`num${leadBlended === "a" ? " lead" : ""}`}>{summary.prob_a_blended || "-"}</td>
+                  <td className={`num${leadBlended === "a" ? " lead" : ""}`}>{asPct(summary.prob_a_blended) ?? "-"}</td>
                   <td>
-                    {t.mixedProb}
-                    <InfoButton id="mixed" openId={openInfo} setOpenId={setOpenInfo} label="i" />
+                    <Tip text={t.mixedProbInfo}>{t.mixedProb}</Tip>
                   </td>
-                  <td className={`num${leadBlended === "b" ? " lead" : ""}`}>{summary.prob_b_blended || "-"}</td>
+                  <td className={`num${leadBlended === "b" ? " lead" : ""}`}>{asPct(summary.prob_b_blended) ?? "-"}</td>
                 </tr>
                 <tr>
-                  <td className={`num${leadElo === "a" ? " lead" : ""}`}>{summary.player_a.overall_elo || "-"}</td>
+                  <td className={`num${leadElo === "a" ? " lead" : ""}`}>{asInt(summary.player_a.overall_elo) ?? "-"}</td>
                   <td>
-                    {t.overallElo}
-                    <InfoButton id="elo" openId={openInfo} setOpenId={setOpenInfo} label="i" />
-                    {eloDiff(summary.player_a.overall_elo, summary.player_b.overall_elo) && (
-                      <div className="sub-label">{eloDiff(summary.player_a.overall_elo, summary.player_b.overall_elo)}</div>
-                    )}
+                    <Tip text={t.eloInfo}>{t.overallElo}</Tip>
                   </td>
-                  <td className={`num${leadElo === "b" ? " lead" : ""}`}>{summary.player_b.overall_elo || "-"}</td>
+                  <td className={`num${leadElo === "b" ? " lead" : ""}`}>{asInt(summary.player_b.overall_elo) ?? "-"}</td>
                 </tr>
                 <tr>
-                  <td className={`num${leadSurfaceElo === "a" ? " lead" : ""}`}>{summary.player_a.surface_elo || "-"}</td>
+                  <td className={`num${leadSurfaceElo === "a" ? " lead" : ""}`}>{asInt(summary.player_a.surface_elo) ?? "-"}</td>
                   <td>
-                    {surfaceLabel ? `${surfaceLabel} ${t.surfaceElo}` : t.surfaceElo}
-                    <InfoButton id="blend" openId={openInfo} setOpenId={setOpenInfo} label="i" />
-                    {eloDiff(summary.player_a.surface_elo, summary.player_b.surface_elo) && (
-                      <div className="sub-label">{eloDiff(summary.player_a.surface_elo, summary.player_b.surface_elo)}</div>
-                    )}
+                    <Tip text={t.blendInfo}>{surfaceLabel ? `${surfaceLabel} ${t.surfaceElo}` : t.surfaceElo}</Tip>
                   </td>
-                  <td className={`num${leadSurfaceElo === "b" ? " lead" : ""}`}>{summary.player_b.surface_elo || "-"}</td>
+                  <td className={`num${leadSurfaceElo === "b" ? " lead" : ""}`}>{asInt(summary.player_b.surface_elo) ?? "-"}</td>
                 </tr>
                 <tr>
                   <td className={`num${leadRecord === "a" ? " lead" : ""}`}>
                     {summary.player_a.surface_win_rate ? asPct(summary.player_a.surface_win_rate) : "-"}
-                    {summary.player_a.surface_wins !== null && summary.player_a.surface_losses !== null && (
-                      <div className="sub-label">{`${summary.player_a.surface_wins}-${summary.player_a.surface_losses}`}</div>
-                    )}
                   </td>
                   <td>
-                    {surfaceLabel ? `${surfaceLabel} ${t.surfaceRecord}` : t.surfaceRecord}
-                    <InfoButton id="record" openId={openInfo} setOpenId={setOpenInfo} label="i" />
+                    <Tip text={t.surfaceRecordInfo}>{surfaceLabel ? `${surfaceLabel} ${t.surfaceRecord}` : t.surfaceRecord}</Tip>
                   </td>
                   <td className={`num${leadRecord === "b" ? " lead" : ""}`}>
                     {summary.player_b.surface_win_rate ? asPct(summary.player_b.surface_win_rate) : "-"}
-                    {summary.player_b.surface_wins !== null && summary.player_b.surface_losses !== null && (
-                      <div className="sub-label">{`${summary.player_b.surface_wins}-${summary.player_b.surface_losses}`}</div>
-                    )}
                   </td>
                 </tr>
                 <tr>
                   <td className={`num${leadLast10 === "a" ? " lead" : ""}`}>
-                    {summary.player_a.last10_win_rate || "-"}
-                    {summary.player_a.last10_wins !== null && summary.player_a.last10_wins !== undefined && summary.player_a.last10_wins !== "" && (
-                      <div className="sub-label">{`${summary.player_a.last10_wins}`}</div>
-                    )}
+                    {asPct(summary.player_a.last10_win_rate) ?? "-"}
                   </td>
                   <td>
-                    {t.last10}
-                    <InfoButton id="last10" openId={openInfo} setOpenId={setOpenInfo} label="i" />
+                    <Tip text={t.last10Info}>{t.last10}</Tip>
                   </td>
                   <td className={`num${leadLast10 === "b" ? " lead" : ""}`}>
-                    {summary.player_b.last10_win_rate || "-"}
-                    {summary.player_b.last10_wins !== null && summary.player_b.last10_wins !== undefined && summary.player_b.last10_wins !== "" && (
-                      <div className="sub-label">{`${summary.player_b.last10_wins}`}</div>
-                    )}
+                    {asPct(summary.player_b.last10_win_rate) ?? "-"}
                   </td>
                 </tr>
                 <tr>
@@ -943,9 +901,7 @@ export default function Home() {
                     {summary.h2h.wins_a ? `${summary.h2h.wins_a}` : "-"}
                   </td>
                   <td>
-                    {t.h2h}
-                    <InfoButton id="h2h" openId={openInfo} setOpenId={setOpenInfo} label="i" />
-                    {summary.h2h.total && <div className="sub-label">{`${summary.h2h.total} ${t.meetings}`}</div>}
+                    <Tip text={t.h2hInfo}>{t.h2h}</Tip>
                   </td>
                   <td className={`num${leadH2h === "b" ? " lead" : ""}`}>
                     {summary.h2h.wins_b ? `${summary.h2h.wins_b}` : "-"}
@@ -953,17 +909,6 @@ export default function Home() {
                 </tr>
               </tbody>
             </table>
-            {openInfo && openInfo !== "prob" && openInfo !== "market" && (
-              <p className="info-text">
-                {openInfo === "elo" ? t.eloInfo
-                  : openInfo === "blend" ? t.blendInfo
-                  : openInfo === "mixed" ? t.mixedProbInfo
-                  : openInfo === "record" ? t.surfaceRecordInfo
-                  : openInfo === "last10" ? t.last10Info
-                  : openInfo === "h2h" ? t.h2hInfo
-                  : ""}
-              </p>
-            )}
           </section>
         </div>
       )}
