@@ -233,8 +233,9 @@ const SURFACE_ZH = { Hard: "硬地", Clay: "红土", Grass: "草地", Carpet: "�
 function surfaceChip(surface, lang) {
   if (!surface) return null;
   const upper = String(surface).toUpperCase();
-  if (lang === "zh") return `${upper} · ${SURFACE_ZH[surface] || surface}`;
-  return upper;
+  // The chip is bilingual in both languages: the user wrote it as
+  // "HARD · 硬地", so the Chinese name stays even in English mode.
+  return `${upper} · ${SURFACE_ZH[surface] || surface}`;
 }
 
 function pick(obj, keys) {
