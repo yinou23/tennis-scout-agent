@@ -34,10 +34,10 @@ button { background: #15803d; border: 0; border-radius: 8px; color: #fff; cursor
 button:hover:not(:disabled) { background: #166534; }
 button:disabled { background: #4b5563; cursor: default; }
 button:focus { outline: 2px solid #4ade80; outline-offset: 2px; }
-.info-btn { background: #1e293b; border: 1px solid #334155; border-radius: 50%; color: #e2e8f0; cursor: pointer; font-size: 12px; font-weight: 700; height: 22px; margin: 0 0 0 6px; padding: 0; width: 22px; }
+.info-btn { background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 50%; color: #6b7280; cursor: pointer; font-size: 10px; font-weight: 700; height: 16px; margin: 0 0 0 6px; padding: 0; width: 16px; }
 .info-text { background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; font-size: 14px; line-height: 1.6; margin: 8px 0 0; padding: 10px 12px; }
 pre.report { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; color: #111827; line-height: 1.7; margin: 12px 0 0; padding: 20px; white-space: pre-wrap; word-break: break-word; }
-section.card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); color: #111827; margin-top: 20px; padding: 20px; }
+section.card { background: #f7f7f5; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); color: #111827; margin-top: 20px; padding: 20px; }
 section.card h2 { color: #111827; font-size: 19px; margin: 0 0 10px; }
 section.card h3 { color: #111827; font-size: 16px; margin: 16px 0 8px; }
 section.card p, section.card li { color: #1f2937; line-height: 1.65; }
@@ -53,7 +53,9 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .calib-chip { align-items: center; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; }
 .market-in-gauge { border-top: 1px solid #e5e7eb; margin-top: 12px; padding-top: 12px; }
 .market-in-gauge h3 { font-size: 16px; margin: 0 0 4px; }
-.calib-chip .info-btn { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
+.market-head { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
+.market-head h3 { margin: 0; }
+.market-head .market-controls { margin: 0; }
 .calib-value { font-weight: 700; margin-left: auto; }
 .fav-name { color: #15803d; }
 .lead { color: #15803d; }
@@ -78,8 +80,9 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .side-table th, .side-table td { border-bottom: 1px solid #e5e7eb; font-size: 14px; padding: 8px 4px; text-align: left; vertical-align: top; }
 .side-table th { color: #374151; }
 .side-table td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.side-table th:nth-child(1), .side-table td:nth-child(1) { text-align: right; }
+.side-table th:nth-child(1), .side-table td:nth-child(1) { text-align: center; }
 .side-table th:nth-child(2), .side-table td:nth-child(2) { color: #6b7280; text-align: center; }
+.side-table th:nth-child(3), .side-table td:nth-child(3) { text-align: center; }
 .sub-label { color: #6b7280; font-size: 12px; }
 .market-grid { display: grid; gap: 0 20px; grid-template-columns: 1fr 1fr; }
 .market-row { align-items: baseline; border-bottom: 1px solid #e5e7eb; display: flex; gap: 12px; justify-content: space-between; padding: 10px 0; }
@@ -87,11 +90,10 @@ section.card ul { margin: 8px 0 0; padding-left: 20px; }
 .market-row p { margin: 4px 0; }
 .market-readonly { color: #6b7280; font-size: 13px; }
 .market-value { font-weight: 700; text-align: right; white-space: nowrap; }
-.market-note { color: #6b7280; font-size: 14px; }
 .market-controls { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .market-controls button { margin-top: 0; padding: 6px 12px; width: auto; }
 .market-controls span { color: #6b7280; font-size: 14px; }
-details.card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); color: #111827; margin-top: 20px; padding: 20px; }
+details.card { background: #f7f7f5; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); color: #111827; margin-top: 20px; padding: 20px; }
 details.card summary { color: #111827; cursor: pointer; font-size: 17px; font-weight: 700; }
 details.card p, details.card li { color: #1f2937; line-height: 1.65; }
 details.card ul { margin: 8px 0 0; padding-left: 20px; }

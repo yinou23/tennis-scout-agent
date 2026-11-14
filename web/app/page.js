@@ -108,22 +108,20 @@ const STRINGS = {
     elo: "Elo",
     eloInfo: "Elo 是从历史比赛算出来的评分，分数越高，历史表现越强。",
     blendInfo: "场地混合是把该场地的 Elo 和总 Elo 混合起来算的，用的先验是 100，场地比赛越多，场地 Elo 的权重越大。",
-    overallElo: "总 Elo",
-    surfaceElo: "场地 Elo",
-    surfaceRecord: "场地战绩",
+    overallElo: "Elo",
+    surfaceElo: "Elo",
+    surfaceRecord: "战绩",
     surfaceRecordInfo: "该球员在这个场地上的胜负场次和胜率。",
     last10: "最近 10 场胜率",
     last10Info: "最近 10 场比赛的胜率，括号里是胜场数。",
-    h2h: "交手",
+    h2h: "H2H",
     h2hInfo: "两人历史交手的胜负场次，括号里是总场数。",
     meetings: "场",
-    wins: "胜",
     market: "市场概率",
     marketNote: "市场概率是投注市场投出来的，和模型概率是两回事，只做对照，不混在一起。",
     marketReadOnly: "只读行情，不下单",
     marketPolymarket: "Polymarket",
     marketKalshi: "Kalshi",
-    marketNoMarket: "没有找到对应市场",
     marketUnavailable: "市场数据暂时不可用",
     marketLoading: "正在拉取市场数据",
     marketRefresh: "刷新",
@@ -183,22 +181,20 @@ const STRINGS = {
     elo: "Elo",
     eloInfo: "Elo is a rating computed from match history. A higher rating means stronger past results.",
     blendInfo: "Surface blend mixes the surface Elo with the overall Elo, with prior 100. More matches on that surface give the surface Elo more weight.",
-    overallElo: "Overall Elo",
-    surfaceElo: "Surface Elo",
-    surfaceRecord: "Surface record",
+    overallElo: "Elo",
+    surfaceElo: "Elo",
+    surfaceRecord: "record",
     surfaceRecordInfo: "This player's win-loss record and win rate on this surface.",
     last10: "Last 10 win rate",
     last10Info: "Win rate over the last 10 matches; wins in parentheses.",
-    h2h: "Head to head",
+    h2h: "H2H",
     h2hInfo: "Head-to-head wins for each side; total meetings in parentheses.",
     meetings: "meetings",
-    wins: "wins",
     market: "Market probabilities",
     marketNote: "Market probabilities come from betting markets. They are separate from the model probability, shown only for comparison.",
     marketReadOnly: "Read-only prices, no trading",
     marketPolymarket: "Polymarket",
     marketKalshi: "Kalshi",
-    marketNoMarket: "No market found",
     marketUnavailable: "Market data unavailable",
     marketLoading: "Loading market data",
     marketRefresh: "Refresh",
@@ -455,10 +451,12 @@ function Avatar({ name, flip, large }) {
 // Gauge: semicircular SVG. Display transform only. Model: the left
 // end is player A (probA = 1), the right end is player B (probA =
 // 0), the centre is 50/50. The needle points toward the favoured
-// side, and the green fills from the centre toward the favoured
-// side, never from the far left, so a right-side favourite shows
-// green on the right only. The original probability is shown
-// alongside, and the angle never changes the number.
+// side, and the green fills the favoured side's share of the arc,
+// from the favoured end to the needle, so the green reads as the
+// favourite's share, not the margin over 50/50. No 0/100 end
+// labels: they read backwards against the left-is-A scale. The
+// original probability is shown alongside, and the angle never
+// changes the number.
 function Gauge({ summary, t }) {
   const probA = asNumber(summary.prob_a_calibrated);
   if (probA === null) return null;
@@ -469,9 +467,8 @@ function Gauge({ summary, t }) {
   const x2 = cx + r * Math.cos(theta);
   const y2 = cy - r * Math.sin(theta);
   const arcLen = 251.3;
-  const centerPos = arcLen / 2;
-  const greenLen = Math.abs(probA - 0.5) * arcLen;
-  const greenStart = probA >= 0.5 ? (1 - probA) * arcLen : centerPos;
+  const greenLen = probA >= 0.5 ? probA * arcLen : (1 - probA) * arcLen;
+  const greenStart = probA >= 0.5 ? 0 : probA * arcLen;
   return (
     <div className="gauge-wrap">
       <svg viewBox="0 0 200 115" width="100%" role="img" aria-label={t.probability}>
@@ -481,8 +478,6 @@ function Gauge({ summary, t }) {
         )}
         <line x1={cx} y1={cy} x2={x2} y2={y2} stroke="#111827" strokeWidth="3" strokeLinecap="round" />
         <circle cx={cx} cy={cy} r="6" fill="#111827" />
-        <text x="20" y="114" fontSize="11" fill="#6b7280">100</text>
-        <text x="176" y="114" fontSize="11" fill="#6b7280">0</text>
       </svg>
     </div>
   );
@@ -829,44 +824,44 @@ export default function Home() {
               <span className="calib-value">{favProb || "-"}</span>
             </div>
             {openInfo === "prob" && <p className="info-text">{t.probInfo}</p>}
+            {!(market.status === "done" && !marketHasAny) && (
             <div className="market-in-gauge">
-              <h3>{t.market}</h3>
-              <p className="market-note">{t.marketNote}</p>
-              <div className="market-controls">
-                <button type="button" onClick={onRefreshMarket} disabled={!marketPair || marketRefreshing}>
-                  {marketRefreshing ? t.marketRefreshing : t.marketRefresh}
-                </button>
-                <button type="button" onClick={() => setMarketAuto(!marketAuto)} aria-pressed={marketAuto}>
-                  {t.marketAutoRefresh}: {marketAuto ? t.marketAutoOn : t.marketAutoOff}
-                </button>
-                {marketUpdatedAt && (
-                  <span>{t.marketUpdated}: {marketUpdatedAt.toLocaleTimeString()}</span>
-                )}
+              <div className="market-head">
+                <h3>
+                  {t.market}
+                  <InfoButton id="market" openId={openInfo} setOpenId={setOpenInfo} label="i" />
+                </h3>
+                <div className="market-controls">
+                  <button type="button" onClick={onRefreshMarket} disabled={!marketPair || marketRefreshing}>
+                    {marketRefreshing ? t.marketRefreshing : t.marketRefresh}
+                  </button>
+                  <button type="button" onClick={() => setMarketAuto(!marketAuto)} aria-pressed={marketAuto}>
+                    {t.marketAutoRefresh}: {marketAuto ? t.marketAutoOn : t.marketAutoOff}
+                  </button>
+                  {marketUpdatedAt && (
+                    <span>{t.marketUpdated}: {marketUpdatedAt.toLocaleTimeString()}</span>
+                  )}
+                </div>
               </div>
+              {openInfo === "market" && <p className="info-text">{t.marketNote}</p>}
               {marketRefreshFailed && <p>{t.marketUpdateFailed}</p>}
               {market.status === "loading" && <p>{t.marketLoading}</p>}
               {market.status === "unavailable" && <p>{t.marketUnavailable}</p>}
-              {market.status === "done" && market.rows.length === 0 && <p>{t.marketNoMarket}</p>}
-              {market.status === "done" && market.rows.length > 0 && (
+              {market.status === "done" && (
                 <div className="market-grid">
-                  {market.rows.map((row, idx) => {
-                    const hasQuote = row.prob_a && row.prob_b;
-                    const value = hasQuote
-                      ? `${marketNameA} ${Math.round(Number(row.prob_a) * 100)}% · ${marketNameB} ${Math.round(Number(row.prob_b) * 100)}%`
-                      : (marketHasAny ? t.noQuote : t.marketNoMarket);
-                    return (
-                      <div className="market-row" key={`${row.source}-${idx}`}>
-                        <div>
-                          <p><strong>{row.source}</strong></p>
-                          <p className="market-readonly">{t.marketReadOnly}</p>
-                        </div>
-                        <p className="market-value">{value}</p>
+                  {market.rows.filter((row) => row.prob_a && row.prob_b).map((row, idx) => (
+                    <div className="market-row" key={`${row.source}-${idx}`}>
+                      <div>
+                        <p><strong>{row.source}</strong></p>
                       </div>
-                    );
-                  })}
+                      <p className="market-value">{`${marketNameA} ${Math.round(Number(row.prob_a) * 100)}% · ${marketNameB} ${Math.round(Number(row.prob_b) * 100)}%`}</p>
+                    </div>
+                  ))}
                 </div>
               )}
+              {market.status === "done" && <p className="market-readonly">{t.marketReadOnly}</p>}
             </div>
+            )}
           </section>
           <section className="card">
             <h2>{t.sideList}</h2>
@@ -901,7 +896,7 @@ export default function Home() {
                 <tr>
                   <td className={`num${leadSurfaceElo === "a" ? " lead" : ""}`}>{summary.player_a.surface_elo || "-"}</td>
                   <td>
-                    {t.surfaceElo}{surfaceLabel ? ` (${surfaceLabel})` : ""}
+                    {surfaceLabel ? `${surfaceLabel} ${t.surfaceElo}` : t.surfaceElo}
                     <InfoButton id="blend" openId={openInfo} setOpenId={setOpenInfo} label="i" />
                     {eloDiff(summary.player_a.surface_elo, summary.player_b.surface_elo) && (
                       <div className="sub-label">{eloDiff(summary.player_a.surface_elo, summary.player_b.surface_elo)}</div>
@@ -917,7 +912,7 @@ export default function Home() {
                     )}
                   </td>
                   <td>
-                    {t.surfaceRecord}{surfaceLabel ? ` (${surfaceLabel})` : ""}
+                    {surfaceLabel ? `${surfaceLabel} ${t.surfaceRecord}` : t.surfaceRecord}
                     <InfoButton id="record" openId={openInfo} setOpenId={setOpenInfo} label="i" />
                   </td>
                   <td className={`num${leadRecord === "b" ? " lead" : ""}`}>
@@ -931,7 +926,7 @@ export default function Home() {
                   <td className={`num${leadLast10 === "a" ? " lead" : ""}`}>
                     {summary.player_a.last10_win_rate || "-"}
                     {summary.player_a.last10_wins !== null && summary.player_a.last10_wins !== undefined && summary.player_a.last10_wins !== "" && (
-                      <div className="sub-label">{`${summary.player_a.last10_wins}${t.wins}`}</div>
+                      <div className="sub-label">{`${summary.player_a.last10_wins}`}</div>
                     )}
                   </td>
                   <td>
@@ -941,13 +936,13 @@ export default function Home() {
                   <td className={`num${leadLast10 === "b" ? " lead" : ""}`}>
                     {summary.player_b.last10_win_rate || "-"}
                     {summary.player_b.last10_wins !== null && summary.player_b.last10_wins !== undefined && summary.player_b.last10_wins !== "" && (
-                      <div className="sub-label">{`${summary.player_b.last10_wins}${t.wins}`}</div>
+                      <div className="sub-label">{`${summary.player_b.last10_wins}`}</div>
                     )}
                   </td>
                 </tr>
                 <tr>
                   <td className={`num${leadH2h === "a" ? " lead" : ""}`}>
-                    {summary.h2h.wins_a ? `${summary.h2h.wins_a} ${t.wins}` : "-"}
+                    {summary.h2h.wins_a ? `${summary.h2h.wins_a}` : "-"}
                   </td>
                   <td>
                     <div>{t.h2h}</div>
@@ -955,12 +950,12 @@ export default function Home() {
                     {summary.h2h.total && <div className="sub-label">{`${summary.h2h.total} ${t.meetings}`}</div>}
                   </td>
                   <td className={`num${leadH2h === "b" ? " lead" : ""}`}>
-                    {summary.h2h.wins_b ? `${summary.h2h.wins_b} ${t.wins}` : "-"}
+                    {summary.h2h.wins_b ? `${summary.h2h.wins_b}` : "-"}
                   </td>
                 </tr>
               </tbody>
             </table>
-            {openInfo && openInfo !== "prob" && (
+            {openInfo && openInfo !== "prob" && openInfo !== "market" && (
               <p className="info-text">
                 {openInfo === "elo" ? t.eloInfo
                   : openInfo === "blend" ? t.blendInfo
