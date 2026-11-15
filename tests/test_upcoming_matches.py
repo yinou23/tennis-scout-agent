@@ -309,3 +309,75 @@ def test_matches_endpoint_returns_list(monkeypatch):
     data = res.json()
     assert data["matches"] == fixed
     assert data["fetched_at"] is not None
+
+
+def test_wta_finals_excluded():
+    """WTA Finals carries 'finals' but is not an ATP event.
+
+    The TSA model only covers ATP players, so a WTA matchup
+    would fail the report. Verified live 2026-11-15: the WTA
+    Finals (Svitolina vs Andreeva) surfaced once pagination
+    reached it, and it must be filtered out.
+    """
+    assert _is_atp_tour_level("WTA Finals, Final Stage") is False
+    wta = _event(
+        "WTA Finals, Final Stage: Elina Svitolina vs Mirra Andreeva",
+        "2026-11-14T23:14:10Z",
+        [_winner_market(
+            "WTA Finals, Final Stage: Elina Svitolina vs Mirra Andreeva",
+            ["Elina Svitolina", "Mirra Andreeva"],
+            '["0.285", "0.715"]',
+        )],
+    )
+    atp = _event(
+        "ATP World Tour Finals, John McEnroe Group: Ben Shelton vs Arthur Fils",
+        "2026-11-13T00:05:26Z",
+        [_winner_market(
+            "ATP World Tour Finals, John McEnroe Group: Ben Shelton vs Arthur Fils",
+            ["Ben Shelton", "Arthur Fils"],
+            '["0.615", "0.385"]',
+        )],
+    )
+    result = get_upcoming_matches(http_get=_payload([wta, atp]))
+    assert len(result) == 1
+    assert result[0]["player_a"] == "Ben Shelton"
+
+
+def test_match_time_prefers_start_time_over_start_date():
+    """The match time is startTime, not startDate (creation).
+
+    Verified live 2026-11-15: the ATP Finals markets were
+    created 2026-11-13 (startDate) for matches played
+    2026-11-15 (startTime). The strip must show the match
+    time, and sort by it.
+    """
+    late_created_early_match = _event(
+        "ATP World Tour Finals, John McEnroe Group: Ben Shelton vs Arthur Fils",
+        "2026-11-13T00:05:26Z",
+        [_winner_market(
+            "ATP World Tour Finals, John McEnroe Group: Ben Shelton vs Arthur Fils",
+            ["Ben Shelton", "Arthur Fils"],
+            '["0.615", "0.385"]',
+        )],
+    )
+    late_created_early_match["startTime"] = "2026-11-15T19:35:00Z"
+    early_created_late_match = _event(
+        "Moselle Open: Nicolas Mejia vs Max Hans Rehberg",
+        "2026-11-10T00:06:26Z",
+        [_winner_market(
+            "Moselle Open: Nicolas Mejia vs Max Hans Rehberg",
+            ["Nicolas Mejia", "Max Hans Rehberg"],
+            '["0.485", "0.515"]',
+        )],
+    )
+    early_created_late_match["startTime"] = "2026-11-16T13:00:00Z"
+    result = get_upcoming_matches(
+        http_get=_payload([early_created_late_match, late_created_early_match])
+    )
+    assert len(result) == 2
+    # Sorted by match time (Nov 15 before Nov 16), not by
+    # creation (Nov 13 before Nov 10 would invert it).
+    assert result[0]["player_a"] == "Ben Shelton"
+    assert result[0]["start_time"] == "2026-11-15T19:35:00Z"
+    assert result[1]["player_a"] == "Nicolas Mejia"
+    assert result[1]["start_time"] == "2026-11-16T13:00:00Z"
