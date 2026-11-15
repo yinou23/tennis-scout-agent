@@ -190,6 +190,33 @@ def _get_market_odds_cached(player_a, player_b, now=None):
     return result
 
 
+# Matches cache: /matches pages the Gamma feed (up to 10 pages
+# of 100 events) to find ATP Tour events, so a repeat request
+# inside the window reuses the result instead of re-fetching
+# the feed. 5 minutes: the strip is fetched once per page
+# load, and a match list does not change minute to minute.
+# Same in-memory, per-process pattern as the market cache.
+_MATCHES_CACHE_TTL_SECONDS = 300.0
+_matches_cache = {}
+
+
+def _get_upcoming_matches_cached(now=None):
+    """Return _get_upcoming_matches(), cached 5 minutes.
+
+    now is injectable for tests. Returns the cached list when
+    it is younger than the TTL, else refetches and stores it.
+    """
+    at = time.monotonic() if now is None else now
+    entry = _matches_cache.get("matches")
+    if entry is not None:
+        result, cached_at = entry
+        if at - cached_at < _MATCHES_CACHE_TTL_SECONDS:
+            return result
+    result = _get_upcoming_matches()
+    _matches_cache["matches"] = (result, at)
+    return result
+
+
 def build_report_response(final_state):
     """Turn a graph final_state into (status_code, payload).
 
@@ -414,11 +441,13 @@ def create_app(graph_runner=None):
 
         Returns {"matches": [...], "fetched_at": ...}. The list
         is the soonest 4 match-winner matches from Polymarket,
-        or [] when none is usable. No cache: the strip is
-        fetched once per page load, not polled.
+        or [] when none is usable. Cached 5 minutes: the strip
+        is fetched once per page load, not polled, and the
+        Gamma feed paging (up to 10 pages) is not re-run on
+        every reload inside the window.
         """
         return {
-            "matches": _get_upcoming_matches(),
+            "matches": _get_upcoming_matches_cached(),
             "fetched_at": datetime.now(timezone.utc).isoformat(),
         }
 
