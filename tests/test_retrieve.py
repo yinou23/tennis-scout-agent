@@ -13,8 +13,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from db import get_connection
+import pytest
+
+from db import get_connection, get_sqlite_path
 from retrieve import retrieve_facts
+
+# The database file (data/tsa.db) is a Release asset, not in
+# git, so CI does not have it. Skip these tests there instead
+# of failing on a missing table. Same pattern as test_eval.py.
+pytestmark = pytest.mark.skipif(
+    not get_sqlite_path().exists(),
+    reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py",
+)
 
 
 def test_fils_verdict_is_underrated():
