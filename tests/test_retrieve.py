@@ -10,6 +10,7 @@ and called Fils overvalued when the numbers said underrated).
 
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
@@ -17,6 +18,15 @@ import pytest
 
 from db import get_connection, get_sqlite_path
 from retrieve import retrieve_facts
+
+# Market prices are live and move (Shelton-Fils went 38.5% to
+# 38.0% once the match started on 2026-11-15), so freeze them
+# here. The test locks the verdict direction for a fixed
+# market-vs-model gap, not the live price.
+_FIXED_MARKET_ODDS = {
+    "polymarket": {"prob_a": 0.615, "prob_b": 0.385},
+    "kalshi": {"prob_a": 0.615, "prob_b": 0.385},
+}
 
 # The database file (data/tsa.db) is a Release asset, not in
 # git, so CI does not have it. Skip these tests there instead
@@ -28,7 +38,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_fils_verdict_is_underrated():
-    with get_connection() as conn:
+    with patch("retrieve.get_market_odds", return_value=_FIXED_MARKET_ODDS), get_connection() as conn:
         facts = retrieve_facts(
             conn,
             "fils是否被低估",
@@ -42,7 +52,7 @@ def test_fils_verdict_is_underrated():
 
 
 def test_h2h_is_one_one_not_zero_zero():
-    with get_connection() as conn:
+    with patch("retrieve.get_market_odds", return_value=_FIXED_MARKET_ODDS), get_connection() as conn:
         facts = retrieve_facts(
             conn,
             "fils是否被低估",

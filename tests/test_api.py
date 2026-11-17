@@ -158,7 +158,7 @@ def test_report_open_returns_answer():
     with patch("planner_llm.classify_question", return_value=("open", None)), patch(
         "ask.answer_open_question",
         return_value={"text": "Fils is underrated.", "facts": {"players": []}},
-    ):
+    ), patch("db.get_connection"):
         response = client.post(
             "/report",
             json={"question": "fils是否被低估", "player_a": "Ben Shelton", "player_b": "Arthur Fils", "surface": "Hard"},
