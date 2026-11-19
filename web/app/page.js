@@ -128,6 +128,9 @@ const STRINGS = {
     marketUpdateFailed: "更新失败，显示旧数据",
     marketAutoRefresh: "市场自动刷新",
     fullReport: "完整报告",
+    rewriteWithAI: "生成完整报告",
+    rewritingReport: "正在生成完整报告…",
+    llmTextFailed: "完整报告生成失败，仍显示模板报告",
     sources: "来源与核查",
     verificationPassed: "核查通过",
     verificationFailed: "核查未通过",
@@ -196,6 +199,9 @@ const STRINGS = {
     marketUpdateFailed: "Refresh failed, showing older data",
     marketAutoRefresh: "Market Auto Refresh",
     fullReport: "Full report",
+    rewriteWithAI: "Rewrite with AI",
+    rewritingReport: "Writing full report…",
+    llmTextFailed: "Full report failed, showing template",
     sources: "Sources and verification",
     verificationPassed: "Verification passed",
     verificationFailed: "Verification failed",
@@ -511,6 +517,13 @@ export default function Home() {
   const [report, setReport] = useState(null);
   const [answer, setAnswer] = useState(null);
   const [error, setError] = useState(null);
+  // textSource: "template" when the shown prose is the template
+  // report (fast /report), "llm" once the Rewrite-with-AI call
+  // has replaced it. llmError is the inline failure note for
+  // that button only; the template stays visible when it fails.
+  const [textSource, setTextSource] = useState("llm");
+  const [llmLoading, setLlmLoading] = useState(false);
+  const [llmError, setLlmError] = useState(null);
   const [market, setMarket] = useState({ status: "idle", rows: [] });
   const [marketPair, setMarketPair] = useState(null);
   const [marketUpdatedAt, setMarketUpdatedAt] = useState(null);
@@ -527,11 +540,11 @@ export default function Home() {
 
   // Upcoming-matches strip: fetched once when the page loads,
   // from the live Polymarket feed, never from the preview's
-  // stale snapshot. A tap loads that matchup into the form
-  // and runs the report. The initial page is the soonest
-  // upcoming match from this feed when there is one, else the
-  // Sinner / Hard / Alcaraz default; it generates at once so
-  // the page opens on data instead of an empty dashboard.
+  // stale snapshot. The page always opens on the cached
+  // Sinner / Hard / Alcaraz default report, in about a second;
+  // nothing is generated on load. A tap only fills the form,
+  // Predict runs the fast template report, and the full prose
+  // report is a separate button under the report text.
   // Matches carry no surface, so the surface stays on the
   // default (Hard), same as tapping a fixture.
   useEffect(() => {
@@ -544,17 +557,10 @@ export default function Home() {
       .then((data) => {
         const rows = Array.isArray(data.matches) ? data.matches : [];
         setMatches({ status: "done", rows });
-        if (rows.length > 0) {
-          setPlayerA(rows[0].player_a);
-          setPlayerB(rows[0].player_b);
-          setAdvanced("");
-          onGenerate({ a: rows[0].player_a, b: rows[0].player_b }, { scroll: false });
-        } else {
-          // No upcoming match: the default is Sinner / Hard /
-          // Alcaraz, which is pre-generated, so load the cached
-          // report instead of running /report again.
-          loadCachedDefault();
-        }
+        // No auto-generate: the default is Sinner / Hard /
+        // Alcaraz, which is pre-generated, so load the cached
+        // report instead of running /report again.
+        loadCachedDefault();
       })
       .catch(() => {
         setMatches({ status: "unavailable", rows: [] });
@@ -661,6 +667,10 @@ export default function Home() {
       const data = await res.json();
       if (!data || data.error || !data.summary) throw new Error("default report invalid");
       applyReport(data, "Jannik Sinner", "Carlos Alcaraz", { scroll: false });
+      // The cached text is the LLM prose, so the rewrite button
+      // does not apply to it.
+      setTextSource("llm");
+      setLlmError(null);
       setLoading(false);
     } catch (e) {
       // Fall back to /report. onGenerate manages loading itself,
@@ -689,9 +699,13 @@ export default function Home() {
     setReport(null);
     setAnswer(null);
     setMarket({ status: "idle", rows: [] });
+    setLlmError(null);
     try {
+      // Fast report: llm=false returns the template report in
+      // about a second, no LLM call. The full prose is a
+      // separate button under the report text.
       const res = await fetch(`${API_URL}/report`, {
-        body: JSON.stringify({ question: q, player_a: a || null, player_b: b || null, surface: surface || null }),
+        body: JSON.stringify({ question: q, player_a: a || null, player_b: b || null, surface: surface || null, llm: false }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
@@ -714,6 +728,7 @@ export default function Home() {
         return;
       }
       applyReport(data, a, b, opts);
+      setTextSource(data.text_source || "template");
     } catch (e) {
       setError({ message: `${t.networkError} ${String(e)}` });
     } finally {
@@ -721,15 +736,49 @@ export default function Home() {
     }
   }
 
-  // Strip tap: load the matchup into the form, keep the
-  // currently selected surface, and run the report. State
-  // updates are async, so the names are passed to onGenerate
-  // directly instead of read back from state.
+  // Rewrite the shown report into LLM prose, on demand. Only
+  // the template text is replaced; the dashboard numbers are
+  // already there and never move. If the rewrite fails, the
+  // template stays and the failure is shown inline under the
+  // button, not as a page-level error.
+  async function onRewriteText() {
+    if (!report || llmLoading) return;
+    const pa = (report.plan && report.plan.player_a) || playerA;
+    const pb = (report.plan && report.plan.player_b) || playerB;
+    const s = (report.plan && report.plan.surface) || surface;
+    if (!pa || !pb) return;
+    const q = s ? `${pa} vs ${pb} ${s}` : `${pa} vs ${pb}`;
+    setLlmLoading(true);
+    setLlmError(null);
+    try {
+      const res = await fetch(`${API_URL}/report/text`, {
+        body: JSON.stringify({ question: q, player_a: pa, player_b: pb, surface: s || null }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const detail = data.detail || data;
+        setLlmError(detail.error || "Request failed");
+        return;
+      }
+      setReport({ ...report, final_text: data.final_text, text_source: "llm", llm_model: data.llm_model, verification: data.verification });
+      setTextSource("llm");
+    } catch (e) {
+      setLlmError(String(e));
+    } finally {
+      setLlmLoading(false);
+    }
+  }
+
+  // Strip tap: load the matchup into the form only, keep the
+  // currently selected surface. The report runs when the user
+  // presses Predict; the dashboard keeps showing the previous
+  // report until then.
   function onMatchClick(match) {
     setPlayerA(match.player_a);
     setPlayerB(match.player_b);
     setAdvanced("");
-    onGenerate({ a: match.player_a, b: match.player_b });
   }
 
   const summary = report ? normalizeSummary(report) : null;
@@ -999,6 +1048,14 @@ export default function Home() {
         <details className="card">
           <summary>{t.fullReport}</summary>
           <pre className="report">{report.final_text}</pre>
+          {textSource === "template" && (
+            <div>
+              <button className="generate-btn" onClick={onRewriteText} disabled={llmLoading}>
+                {llmLoading ? t.rewritingReport : t.rewriteWithAI}
+              </button>
+              {llmError && <p className="matches-note">{t.llmTextFailed}</p>}
+            </div>
+          )}
         </details>
       )}
 

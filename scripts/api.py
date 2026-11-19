@@ -53,6 +53,16 @@ Endpoints:
     Each /report call costs two LLM calls in the real runner,
     one for the planner, one for the writer, plus database
     queries. The test runner in tests is fake and costs nothing.
+    That is the default (llm=true). With llm=false, /report
+    skips the writer and returns the deterministic template
+    report in about a second: same summary, same numbers, the
+    prose is the template text, marked text_source "template".
+    The LLM prose is then a separate call, POST /report/text,
+    which rebuilds the same template report and runs only the
+    writer plus verification. The UI calls /report on Predict
+    and /report/text only when the user asks for the full
+    prose report, so the dashboard never waits ~100 seconds
+    for a writer call nobody asked for.
 
 Runner injection, for tests:
   create_app(graph_runner=None) builds the app. graph_runner,
@@ -253,7 +263,74 @@ def build_report_response(final_state):
         "verification": verification,
         "llm_model": final_state.get("llm_model"),
         "graph_used_langgraph": final_state.get("_used_langgraph"),
+        "text_source": final_state.get("text_source", "llm"),
         "summary": summary,
+    }
+
+
+def _build_template_report(question, plan, context):
+    """Build the deterministic templated report for a match plan.
+
+    No LLM call: build_scout_report runs database queries only,
+    so this returns in about a second. Returns (report, None)
+    on success, or (None, error_string). Used by the fast
+    /report path (llm=false) and by /report/text, which rewrites
+    this same report with the LLM on demand. The imports are
+    lazy, same as the rest of this file, so tests can patch
+    scout_report.build_scout_report and db.get_connection.
+    """
+    try:
+        from db import get_connection
+    except ImportError as exc:
+        return None, f"db_helper_not_installed:{exc}"
+    try:
+        from scout_report import build_scout_report
+    except ImportError as exc:
+        return None, f"report_builder_not_installed:{exc}"
+    plan = plan or {}
+    context = context or {}
+    player_a = (plan.get("player_a") or context.get("player_a") or "").strip() or None
+    player_b = (plan.get("player_b") or context.get("player_b") or "").strip() or None
+    surface = (plan.get("surface") or context.get("surface") or "").strip() or None
+    if not player_a or not player_b:
+        return None, "missing_players"
+    try:
+        with get_connection() as conn:
+            report = build_scout_report(conn, player_a, player_b, surface, question)
+    except Exception as exc:  # noqa: BLE001 - API must report, not crash
+        return None, f"runner_failed:{type(exc).__name__}:{exc}"
+    if not isinstance(report, dict) or "error" in report:
+        err = report.get("error") if isinstance(report, dict) else "no_template_report"
+        return None, str(err)
+    return report, None
+
+
+def _template_final_state(question, plan, report):
+    """final_state for a templated report, verified, no LLM text.
+
+    The template text is verified with the same verifier as the
+    LLM rewrite. Every required number is in the template by
+    construction, so this passes; if it ever did not, the
+    response builder would return 422 like any other failed
+    verification. text_source "template" tells the UI the prose
+    is the template, and the Rewrite-with-AI button applies.
+    """
+    try:
+        from writer_llm import verify_llm_report
+    except ImportError:
+        verification = {"ok": True, "unexpected_numbers": [], "missing_required": [], "tag_error": None}
+    else:
+        verification = verify_llm_report(report.get("text", ""), report)
+    return {
+        "question": question,
+        "report": report,
+        "final_text": report.get("text", ""),
+        "verification": verification,
+        "planner_source": "router",
+        "plan": plan,
+        "llm_model": None,
+        "text_source": "template",
+        "_used_langgraph": False,
     }
 
 
@@ -345,6 +422,11 @@ def create_app(graph_runner=None):
         player_a: str | None = None
         player_b: str | None = None
         surface: str | None = None
+        # llm=false: skip the LLM rewrite, return the template
+        # report fast. llm=true (default): the full graph with
+        # the writer, as before. The UI sends false on Predict
+        # and uses /report/text for the prose on demand.
+        llm: bool = True
 
     @app.get("/health")
     def health():
@@ -399,7 +481,26 @@ def create_app(graph_runner=None):
                     status_code=422, detail={"error": result["error"]}
                 )
             return {"kind": "answer", "question": question, "text": result["text"], "facts": result["facts"]}
-        # Match prediction: run the verified full graph, with the
+        # Match prediction: fast path first. With llm=false the
+        # template report is returned in about a second, no LLM
+        # call, same summary and numbers as the full graph. The
+        # full graph below (llm=true, default) adds the LLM
+        # rewrite, which costs ~100 seconds.
+        if request.llm is False:
+            report, err = _build_template_report(question, plan, context)
+            if err is not None:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"error": err, "planner_source": "router", "plan": plan, "verification": {}},
+                )
+            final_state = _template_final_state(question, plan, report)
+            status_code, payload = build_report_response(final_state)
+            if status_code != 200:
+                raise HTTPException(status_code=status_code, detail=payload)
+            payload = dict(payload)
+            payload["kind"] = "match"
+            return payload
+        # Full graph: run the verified full graph, with the
         # precomputed plan so the graph does not plan twice.
         runner = app.state.graph_runner or default_report_runner
         try:
@@ -418,6 +519,92 @@ def create_app(graph_runner=None):
         payload = dict(payload)
         payload["kind"] = "match"
         return payload
+
+    @app.post("/report/text")
+    def report_text(request: ReportRequest):
+        """Rewrite a match report into LLM prose, on demand.
+
+        The dashboard numbers never wait for this: /report with
+        llm=false already returned the template report in about
+        a second. This endpoint rebuilds that same template
+        report (database queries only, cheap) and runs only the
+        LLM writer plus verification, so it costs one ~100s LLM
+        call. On verification failure it returns 422 with the
+        verification detail, and the UI keeps showing the
+        template text. Only kind "match" is accepted here; an
+        open or out-of-scope question is 422 not_a_match.
+        """
+        question = (request.question or "").strip()
+        if not question:
+            raise HTTPException(status_code=422, detail={"error": "empty_question"})
+        context = {
+            "player_a": (request.player_a or "").strip() or None,
+            "player_b": (request.player_b or "").strip() or None,
+            "surface": (request.surface or "").strip() or None,
+        }
+        try:
+            from planner_llm import classify_question
+        except ImportError as exc:
+            raise HTTPException(
+                status_code=422, detail={"error": f"planner_not_installed:{exc}"}
+            ) from exc
+        kind, plan = classify_question(question, context)
+        if kind != "match":
+            raise HTTPException(
+                status_code=422,
+                detail={"error": "not_a_match", "planner_source": "router", "plan": plan, "verification": {}},
+            )
+        report, err = _build_template_report(question, plan, context)
+        if err is not None:
+            raise HTTPException(
+                status_code=422,
+                detail={"error": err, "planner_source": "router", "plan": plan, "verification": {}},
+            )
+        try:
+            from writer_llm import verify_llm_report, write_report_with_llm
+        except ImportError as exc:
+            raise HTTPException(
+                status_code=422, detail={"error": f"writer_not_installed:{exc}"}
+            ) from exc
+        try:
+            result = write_report_with_llm(report, question)
+        except Exception as exc:  # noqa: BLE001 - API must report, not crash
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": f"runner_failed:{type(exc).__name__}:{exc}",
+                    "planner_source": "router",
+                    "plan": plan,
+                    "verification": {},
+                },
+            ) from exc
+        if not isinstance(result, dict) or "error" in result:
+            err = result.get("error") if isinstance(result, dict) else "llm_writer_failed"
+            raise HTTPException(
+                status_code=422,
+                detail={"error": str(err), "planner_source": "router", "plan": plan, "verification": {}},
+            )
+        verification = verify_llm_report(result["text"], report)
+        if not verification.get("ok"):
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "verification_failed",
+                    "planner_source": "router",
+                    "plan": plan,
+                    "verification": verification,
+                },
+            )
+        return {
+            "question": question,
+            "final_text": result["text"],
+            "verification": verification,
+            "llm_model": result.get("model"),
+            "planner_source": "router",
+            "plan": plan,
+            "kind": "match_text",
+            "text_source": "llm",
+        }
 
     @app.get("/market")
     def market(player_a: str, player_b: str):

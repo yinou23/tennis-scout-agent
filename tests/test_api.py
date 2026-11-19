@@ -167,3 +167,140 @@ def test_report_open_returns_answer():
     payload = response.json()
     assert payload["kind"] == "answer"
     assert payload["text"] == "Fils is underrated."
+
+
+# --- Fast /report path (llm=false) and POST /report/text ---------------
+#
+# The fast path returns the deterministic template report with no LLM
+# call; /report/text rewrites that same template with the LLM on
+# demand. Both are tested with a fake template report whose text
+# contains exactly the required numbers, so the real verifier runs
+# and must pass. The graph runner must never run on the fast path.
+
+_FAKE_TEMPLATE_TEXT = (
+    "Jannik Sinner is the favorite on Hard. "
+    "Final probability (calibrated): Jannik Sinner 0.6378, Carlos Alcaraz 0.3622 "
+    "[Surface blend: Hard, prior=100] [Calibration: a=0.8] "
+    "Blended probability was Jannik Sinner 0.6698, Carlos Alcaraz 0.3302. "
+    "Overall Elo: Jannik Sinner 2500.0, Carlos Alcaraz 2400.0. "
+    "Blended Elo: Jannik Sinner 2510.0, Carlos Alcaraz 2390.0. "
+    "Head to head: 3 matches, Jannik Sinner 2, Carlos Alcaraz 1."
+)
+
+_FAKE_LLM_TEXT = (
+    "In natural prose, Jannik Sinner is the favorite on Hard. "
+    "Final probability (calibrated): Jannik Sinner 0.6378, Carlos Alcaraz 0.3622 "
+    "[Surface blend: Hard, prior=100] [Calibration: a=0.8] "
+    "Blended probability was Jannik Sinner 0.6698, Carlos Alcaraz 0.3302. "
+    "Overall Elo: Jannik Sinner 2500.0, Carlos Alcaraz 2400.0. "
+    "Blended Elo: Jannik Sinner 2510.0, Carlos Alcaraz 2390.0. "
+    "Head to head: 3 matches, Jannik Sinner 2, Carlos Alcaraz 1."
+)
+
+
+def _fake_template_report():
+    return {
+        "text": _FAKE_TEMPLATE_TEXT,
+        "values": [
+            "0.6378", "0.3622", "0.6698", "0.3302",
+            "2500.0", "2400.0", "2510.0", "2390.0",
+            "3", "2", "1", "100", "0.8",
+        ],
+        "surface_applied": True,
+        "prob_a_calibrated": 0.6378,
+        "prob_b_calibrated": 0.3622,
+        "prob_a_blended": 0.6698,
+        "prob_b_blended": 0.3302,
+        "tools": {
+            "match": {
+                "player_a": {"name": "Jannik Sinner", "overall_elo": 2500.0, "blended_elo": 2510.0},
+                "player_b": {"name": "Carlos Alcaraz", "overall_elo": 2400.0, "blended_elo": 2390.0},
+            },
+            "h2h": {"total": 3, "wins_a": 2, "wins_b": 1},
+        },
+    }
+
+
+_MATCH_PLAN = {"tool": "match", "player_a": "Jannik Sinner", "player_b": "Carlos Alcaraz", "surface": "Hard"}
+
+
+def _never_runner(question):
+    raise AssertionError("graph runner must not run on the fast path")
+
+
+@pytest.mark.skipif(not TESTCLIENT_AVAILABLE, reason="fastapi/httpx not installed, TestClient tests skipped")
+def test_report_fast_path_returns_template_without_llm():
+    app = create_app(graph_runner=_never_runner)
+    client = TestClient(app)
+    with patch("planner_llm.classify_question", return_value=("match", _MATCH_PLAN)), patch(
+        "db.get_connection"
+    ), patch("scout_report.build_scout_report", return_value=_fake_template_report()):
+        response = client.post(
+            "/report",
+            json={"question": "Jannik Sinner vs Carlos Alcaraz Hard", "llm": False},
+        )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["kind"] == "match"
+    assert payload["final_text"] == _FAKE_TEMPLATE_TEXT
+    assert payload["text_source"] == "template"
+    assert payload["verification"]["ok"] is True
+    assert payload["llm_model"] is None
+
+
+@pytest.mark.skipif(not TESTCLIENT_AVAILABLE, reason="fastapi/httpx not installed, TestClient tests skipped")
+def test_report_text_returns_llm_prose():
+    app = create_app(graph_runner=_never_runner)
+    client = TestClient(app)
+    with patch("planner_llm.classify_question", return_value=("match", _MATCH_PLAN)), patch(
+        "db.get_connection"
+    ), patch("scout_report.build_scout_report", return_value=_fake_template_report()), patch(
+        "writer_llm.write_report_with_llm",
+        return_value={"text": _FAKE_LLM_TEXT, "model": "fake"},
+    ):
+        response = client.post(
+            "/report/text",
+            json={"question": "Jannik Sinner vs Carlos Alcaraz Hard"},
+        )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["kind"] == "match_text"
+    assert payload["final_text"] == _FAKE_LLM_TEXT
+    assert payload["text_source"] == "llm"
+    assert payload["verification"]["ok"] is True
+    assert payload["llm_model"] == "fake"
+
+
+@pytest.mark.skipif(not TESTCLIENT_AVAILABLE, reason="fastapi/httpx not installed, TestClient tests skipped")
+def test_report_text_verification_failure_returns_422():
+    app = create_app(graph_runner=_never_runner)
+    client = TestClient(app)
+    broken_text = _FAKE_LLM_TEXT.replace("0.6378, ", "")
+    with patch("planner_llm.classify_question", return_value=("match", _MATCH_PLAN)), patch(
+        "db.get_connection"
+    ), patch("scout_report.build_scout_report", return_value=_fake_template_report()), patch(
+        "writer_llm.write_report_with_llm",
+        return_value={"text": broken_text, "model": "fake"},
+    ):
+        response = client.post(
+            "/report/text",
+            json={"question": "Jannik Sinner vs Carlos Alcaraz Hard"},
+        )
+    assert response.status_code == 422, response.text
+    detail = response.json()["detail"]
+    assert detail["error"] == "verification_failed"
+    assert "0.6378" in detail["verification"]["missing_required"]
+    assert "final_text" not in detail
+
+
+@pytest.mark.skipif(not TESTCLIENT_AVAILABLE, reason="fastapi/httpx not installed, TestClient tests skipped")
+def test_report_text_not_a_match_returns_422():
+    app = create_app(graph_runner=_never_runner)
+    client = TestClient(app)
+    with patch("planner_llm.classify_question", return_value=("open", None)):
+        response = client.post(
+            "/report/text",
+            json={"question": "fils是否被低估"},
+        )
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"]["error"] == "not_a_match"
