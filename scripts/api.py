@@ -53,7 +53,7 @@ Endpoints:
     Each /report call costs two LLM calls in the real runner,
     one for the planner, one for the writer, plus database
     queries. The test runner in tests is fake and costs nothing.
-    That is the default (llm=true). With llm=false, /report
+    That is the explicit llm=true path. With llm=false, /report
     skips the writer and returns the deterministic template
     report in about a second: same summary, same numbers, the
     prose is the template text, marked text_source "template".
@@ -63,6 +63,10 @@ Endpoints:
     and /report/text only when the user asks for the full
     prose report, so the dashboard never waits ~100 seconds
     for a writer call nobody asked for.
+    Since 2026-11-19 the default is llm=false: the LLM runs
+    only on explicit request (llm=true, /report/text, or a
+    manually typed question), never on page load, match tap,
+    or Predict.
 
 Runner injection, for tests:
   create_app(graph_runner=None) builds the app. graph_runner,
@@ -451,11 +455,14 @@ def create_app(graph_runner=None):
         player_a: str | None = None
         player_b: str | None = None
         surface: str | None = None
-        # llm=false: skip the LLM rewrite, return the template
-        # report fast. llm=true (default): the full graph with
-        # the writer, as before. The UI sends false on Predict
-        # and uses /report/text for the prose on demand.
-        llm: bool = True
+        # llm=false (default): the fast template report, no LLM
+        # call anywhere. The LLM runs only on explicit request:
+        # llm=true here, POST /report/text (the Rewrite-with-AI
+        # button), or a manually typed question that needs the
+        # classifier and the open answer path. Nothing the UI
+        # runs by itself (page load, match tap, Predict) may
+        # spend an LLM call.
+        llm: bool = False
 
     @app.get("/health")
     def health():

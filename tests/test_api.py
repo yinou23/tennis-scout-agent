@@ -108,7 +108,11 @@ def test_health_endpoint():
 def test_report_endpoint_success_with_fake_runner():
     app = create_app(graph_runner=lambda q: _success_state())
     client = TestClient(app)
-    response = client.post("/report", json={"question": "Jannik Sinner vs Carlos Alcaraz Hard"})
+    # llm=true is explicit here: the default is llm=false (fast
+    # template path), which never calls the graph runner.
+    response = client.post(
+        "/report", json={"question": "Jannik Sinner vs Carlos Alcaraz Hard", "llm": True}
+    )
     assert response.status_code == 200, response.text
     payload = response.json()
     assert "0.6378" in payload["final_text"]
@@ -125,7 +129,8 @@ def test_report_endpoint_error_with_fake_runner():
 
     app = create_app(graph_runner=failing_runner)
     client = TestClient(app)
-    response = client.post("/report", json={"question": "zzz no template"})
+    # llm=true is explicit here, same as the success test above.
+    response = client.post("/report", json={"question": "zzz no template", "llm": True})
     assert response.status_code == 422
     assert "final_text" not in str(response.json()) or "ERROR" not in response.json().get("detail", {}).get("final_text", "")
 
@@ -272,6 +277,38 @@ def test_report_fast_path_with_players_skips_classifier_llm():
                 "player_b": "Carlos Alcaraz",
                 "surface": "Hard",
                 "llm": False,
+            },
+        )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["kind"] == "match"
+    assert payload["final_text"] == _FAKE_TEMPLATE_TEXT
+    assert payload["text_source"] == "template"
+    assert payload["verification"]["ok"] is True
+
+
+@pytest.mark.skipif(not TESTCLIENT_AVAILABLE, reason="fastapi/httpx not installed, TestClient tests skipped")
+def test_report_default_is_fast_path_without_llm_flag():
+    # The LLM is off by default: a /report call that omits llm
+    # must take the fast template path, never the graph runner
+    # and never the classifier. Only an explicit llm=true, the
+    # /report/text button, or a manually typed question may
+    # spend an LLM call.
+    def _never_classify(question, context=None):
+        raise AssertionError("classifier must not run for a frontend-format match")
+
+    app = create_app(graph_runner=_never_runner)
+    client = TestClient(app)
+    with patch("planner_llm.classify_question", side_effect=_never_classify), patch(
+        "db.get_connection"
+    ), patch("scout_report.build_scout_report", return_value=_fake_template_report()):
+        response = client.post(
+            "/report",
+            json={
+                "question": "Jannik Sinner vs Carlos Alcaraz Hard",
+                "player_a": "Jannik Sinner",
+                "player_b": "Carlos Alcaraz",
+                "surface": "Hard",
             },
         )
     assert response.status_code == 200, response.text
