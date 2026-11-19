@@ -540,12 +540,12 @@ export default function Home() {
 
   // Upcoming-matches strip: fetched once when the page loads,
   // from the live Polymarket feed, never from the preview's
-  // stale snapshot. The page always opens on the cached
-  // Sinner / Hard / Alcaraz default report, in about a second;
-  // nothing is generated on load. A tap fills the form and
-  // runs the fast template report (seconds, not ~100s), and
-  // the full prose report is a separate button under the
-  // report text.
+  // stale snapshot. The page opens by auto-running the fast
+  // template report for the soonest match (seconds, not
+  // ~100s); with no upcoming match it opens on the cached
+  // Sinner / Hard / Alcaraz default instead. Only the LLM
+  // prose report is manual, via the button under the report
+  // text. Predict always auto-runs; the LLM text never does.
   // Matches carry no surface, so the surface stays on the
   // default (Hard), same as tapping a fixture.
   useEffect(() => {
@@ -558,10 +558,17 @@ export default function Home() {
       .then((data) => {
         const rows = Array.isArray(data.matches) ? data.matches : [];
         setMatches({ status: "done", rows });
-        // No auto-generate: the default is Sinner / Hard /
-        // Alcaraz, which is pre-generated, so load the cached
-        // report instead of running /report again.
-        loadCachedDefault();
+        if (rows.length > 0) {
+          setPlayerA(rows[0].player_a);
+          setPlayerB(rows[0].player_b);
+          setAdvanced("");
+          onGenerate({ a: rows[0].player_a, b: rows[0].player_b }, { scroll: false });
+        } else {
+          // No upcoming match: the default is Sinner / Hard /
+          // Alcaraz, which is pre-generated, so load the cached
+          // report instead of running /report again.
+          loadCachedDefault();
+        }
       })
       .catch(() => {
         setMatches({ status: "unavailable", rows: [] });
