@@ -272,6 +272,33 @@ def test_polymarket_vs_title_match_winner_surname_outcomes():
     assert result["prob_b"] == 0.725
 
 
+def test_polymarket_untraded_market_is_not_a_quote():
+    """Live defect: ATP Finals Alcaraz vs Shelton, Nov 21 2026.
+
+    The projected semifinal market exists but nobody has traded
+    it, so Gamma returns outcomePrices 0.5/0.5 with volume null.
+    That 0.5 is the untraded default, not a price, so it must
+    return None (no quote) instead of 50%.
+    """
+    markets = [
+        _poly_match_winner(
+            "ATP World Tour Finals, Final Stage: Carlos Alcaraz vs Ben Shelton",
+            '["Carlos Alcaraz", "Ben Shelton"]',
+            '["0.5", "0.5"]',
+            None,
+        ),
+        _poly_market(
+            question="Will Carlos Alcaraz beat Ben Shelton?",
+            volume=None,
+        ),
+    ]
+    result = get_polymarket_odds(
+        "Carlos Alcaraz", "Ben Shelton",
+        http_get=_fake_http_get_match_winner(markets),
+    )
+    assert result is None
+
+
 def test_polymarket_closed_market_filtered_even_at_higher_volume():
     """The closed ATP Finals market at volume 1753310 and the
     closed 3:0 prop at 26999 must not beat the open Paris

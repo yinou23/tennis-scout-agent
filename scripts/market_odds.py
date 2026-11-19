@@ -420,9 +420,11 @@ def get_polymarket_odds(player_a, player_b, http_get=None):
     wins. A match-winner returns its outcome prices mapped
     to the players in order; a prop returns its Yes price
     as the implied probability for player A, with
-    prob_b = 1 - prob_a. Returns None when there is no
-    matching open market, no clear subject, no price, or
-    any HTTP error. Never raises.
+    prob_b = 1 - prob_a. A market with no volume has not
+    traded, so its 0.5 default is not a price and is
+    skipped. Returns None when there is no matching open
+    market, no clear subject, no price, or any HTTP error.
+    Never raises.
     """
     if http_get is None:
         http_get = _default_http_get
@@ -451,6 +453,8 @@ def get_polymarket_odds(player_a, player_b, http_get=None):
             props.append((volume, market, subject))
         match_winners.sort(key=lambda item: item[0], reverse=True)
         for _volume, market in match_winners:
+            if _volume <= 0:
+                continue
             probs = _match_winner_probs(market, player_a, player_b, http_get)
             if probs is None:
                 continue
@@ -469,6 +473,8 @@ def get_polymarket_odds(player_a, player_b, http_get=None):
             }
         props.sort(key=lambda item: item[0], reverse=True)
         for _volume, market, subject in props:
+            if _volume <= 0:
+                continue
             yes_price = _polymarket_price(market, http_get)
             if yes_price is None:
                 continue
