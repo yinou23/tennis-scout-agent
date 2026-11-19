@@ -542,9 +542,10 @@ export default function Home() {
   // from the live Polymarket feed, never from the preview's
   // stale snapshot. The page always opens on the cached
   // Sinner / Hard / Alcaraz default report, in about a second;
-  // nothing is generated on load. A tap only fills the form,
-  // Predict runs the fast template report, and the full prose
-  // report is a separate button under the report text.
+  // nothing is generated on load. A tap fills the form and
+  // runs the fast template report (seconds, not ~100s), and
+  // the full prose report is a separate button under the
+  // report text.
   // Matches carry no surface, so the surface stays on the
   // default (Hard), same as tapping a fixture.
   useEffect(() => {
@@ -771,14 +772,18 @@ export default function Home() {
     }
   }
 
-  // Strip tap: load the matchup into the form only, keep the
-  // currently selected surface. The report runs when the user
-  // presses Predict; the dashboard keeps showing the previous
-  // report until then.
+  // Strip tap: load the matchup into the form, keep the
+  // currently selected surface, and run the fast report.
+  // State updates are async, so the names are passed to
+  // onGenerate directly instead of read back from state.
+  // Restored 2026-11-19: tapping used to only fill the form,
+  // but the fast report takes seconds, so auto-run on tap is
+  // cheap again.
   function onMatchClick(match) {
     setPlayerA(match.player_a);
     setPlayerB(match.player_b);
     setAdvanced("");
+    onGenerate({ a: match.player_a, b: match.player_b });
   }
 
   const summary = report ? normalizeSummary(report) : null;
