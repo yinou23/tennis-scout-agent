@@ -249,6 +249,40 @@ def test_report_fast_path_returns_template_without_llm():
 
 
 @pytest.mark.skipif(not TESTCLIENT_AVAILABLE, reason="fastapi/httpx not installed, TestClient tests skipped")
+def test_report_fast_path_with_players_skips_classifier_llm():
+    # Rule-first routing: a plain frontend-format question with
+    # the players in the body is a match with no LLM call, so
+    # the classifier must never run. classify_question calls
+    # Gemini first whenever a key is set, which cost 10-25s on
+    # Cloud Run and made live Predict measure 24s twice while
+    # the same call took 0.55s locally (no key, router only).
+    def _never_classify(question, context=None):
+        raise AssertionError("classifier must not run for a frontend-format match")
+
+    app = create_app(graph_runner=_never_runner)
+    client = TestClient(app)
+    with patch("planner_llm.classify_question", side_effect=_never_classify), patch(
+        "db.get_connection"
+    ), patch("scout_report.build_scout_report", return_value=_fake_template_report()):
+        response = client.post(
+            "/report",
+            json={
+                "question": "Jannik Sinner vs Carlos Alcaraz Hard",
+                "player_a": "Jannik Sinner",
+                "player_b": "Carlos Alcaraz",
+                "surface": "Hard",
+                "llm": False,
+            },
+        )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["kind"] == "match"
+    assert payload["final_text"] == _FAKE_TEMPLATE_TEXT
+    assert payload["text_source"] == "template"
+    assert payload["verification"]["ok"] is True
+
+
+@pytest.mark.skipif(not TESTCLIENT_AVAILABLE, reason="fastapi/httpx not installed, TestClient tests skipped")
 def test_report_text_returns_llm_prose():
     app = create_app(graph_runner=_never_runner)
     client = TestClient(app)

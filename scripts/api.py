@@ -268,6 +268,35 @@ def build_report_response(final_state):
     }
 
 
+def _rule_match_plan(question, context):
+    """Match plan for a plain frontend-format question, no LLM.
+
+    The UI builds match questions as "A vs B" plus an optional
+    surface word, with the same players in player_a/player_b.
+    That is unambiguously a match prediction, so the rule decides
+    it in microseconds. Anything else (free text, open, out of
+    scope) still goes to classify_question.
+
+    This matters because classify_question calls Gemini first
+    whenever a key is set, which costs 10-25s on Cloud Run.
+    Without this, the fast /report path (llm=false) still paid
+    for one LLM call, and live Predict measured 24s twice in a
+    row while the same call took 0.55s locally, where no key is
+    set and classification already skipped the LLM.
+    """
+    context = context or {}
+    a = (context.get("player_a") or "").strip()
+    b = (context.get("player_b") or "").strip()
+    s = (context.get("surface") or "").strip()
+    if not a or not b:
+        return None
+    q = (question or "").strip()
+    expected = f"{a} vs {b}" + (f" {s}" if s else "")
+    if q.lower() != expected.lower():
+        return None
+    return {"tool": "match", "player_a": a, "player_b": b, "surface": s or None}
+
+
 def _build_template_report(question, plan, context):
     """Build the deterministic templated report for a match plan.
 
@@ -445,13 +474,20 @@ def create_app(graph_runner=None):
         # Route the question: match prediction, open tennis
         # question, or out of scope. Out of scope gets a
         # friendly message, never a raw error code.
-        try:
-            from planner_llm import classify_question
-        except ImportError as exc:
-            raise HTTPException(
-                status_code=422, detail={"error": f"planner_not_installed:{exc}"}
-            ) from exc
-        kind, plan = classify_question(question, context)
+        # Rule first: a plain frontend-format match question is
+        # decided with no LLM call, so the fast path stays fast.
+        # Anything else goes to the LLM classifier below.
+        plan = _rule_match_plan(question, context)
+        if plan is not None:
+            kind = "match"
+        else:
+            try:
+                from planner_llm import classify_question
+            except ImportError as exc:
+                raise HTTPException(
+                    status_code=422, detail={"error": f"planner_not_installed:{exc}"}
+                ) from exc
+            kind, plan = classify_question(question, context)
         if kind == "out_of_scope":
             zh = _is_chinese(question)
             message = (
@@ -542,13 +578,19 @@ def create_app(graph_runner=None):
             "player_b": (request.player_b or "").strip() or None,
             "surface": (request.surface or "").strip() or None,
         }
-        try:
-            from planner_llm import classify_question
-        except ImportError as exc:
-            raise HTTPException(
-                status_code=422, detail={"error": f"planner_not_installed:{exc}"}
-            ) from exc
-        kind, plan = classify_question(question, context)
+        # Rule first, same as /report: a plain frontend-format
+        # match question needs no LLM classifier call.
+        plan = _rule_match_plan(question, context)
+        if plan is not None:
+            kind = "match"
+        else:
+            try:
+                from planner_llm import classify_question
+            except ImportError as exc:
+                raise HTTPException(
+                    status_code=422, detail={"error": f"planner_not_installed:{exc}"}
+                ) from exc
+            kind, plan = classify_question(question, context)
         if kind != "match":
             raise HTTPException(
                 status_code=422,
