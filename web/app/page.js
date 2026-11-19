@@ -71,6 +71,8 @@ const AVATARS = {
   Fritz: "/players/fritz-white.webp",
   Shelton: "/players/shelton-white.webp",
   Tiafoe: "/players/tiafoe-white.webp",
+  Cobolli: "/players/cobolli-white.webp",
+  Fils: "/players/fils-white.webp",
 };
 
 function avatarSrc(name) {
