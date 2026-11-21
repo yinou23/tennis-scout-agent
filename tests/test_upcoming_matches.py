@@ -9,6 +9,7 @@ run everywhere and never touch Polymarket.
 """
 
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -16,6 +17,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import api
 from fastapi.testclient import TestClient
 from upcoming_matches import _is_atp_tour_level, get_upcoming_matches
+
+# Fixed reference time for the stub payloads below (all dated
+# 2026-11-08 to 2026-11-10), so the started-match filter
+# does not drop them. The filter is tested separately.
+_NOW = datetime(2026, 11, 9, tzinfo=timezone.utc)
 
 
 def _event(title, start, markets, closed=False):
@@ -68,7 +74,7 @@ def test_returns_soonest_match_winner_first():
             '["0.5", "0.5"]',
         )],
     )
-    result = get_upcoming_matches(http_get=_payload([late, early]))
+    result = get_upcoming_matches(http_get=_payload([late, early]), now=_NOW)
     assert len(result) == 2
     assert result[0]["player_a"] == "Benjamin Bonzi"
     assert result[0]["player_b"] == "Tom Gentzsch"
@@ -95,7 +101,7 @@ def test_limit_four():
         )
         for i in range(5)
     ]
-    result = get_upcoming_matches(http_get=_payload(events))
+    result = get_upcoming_matches(http_get=_payload(events), now=_NOW)
     assert len(result) == 4
     assert result[0]["player_a"] == "Player A0"
     assert result[3]["player_a"] == "Player A3"
@@ -172,10 +178,42 @@ def test_no_prices_returns_polymarket_none():
             "clobTokenIds": "[]",
         }],
     )
-    result = get_upcoming_matches(http_get=_payload([no_price]))
+    result = get_upcoming_matches(http_get=_payload([no_price]), now=_NOW)
     assert len(result) == 1
     assert result[0]["player_a"] == "Nicolas Mejia"
     assert result[0]["polymarket"] is None
+
+
+def test_started_match_skipped():
+    # A match whose scheduled start is more than the 30-minute
+    # grace in the past is not upcoming, even though its market
+    # is still active (Polymarket leaves the market open after
+    # the match ends; seen 2026-11-21, Alcaraz vs Shelton at
+    # 0.9995 two hours after its start). A match inside the
+    # grace (delayed start) still shows.
+    now = datetime(2026, 11, 10, 12, 0, 0, tzinfo=timezone.utc)
+    finished = _event(
+        "Moselle Open: Player A vs Player B",
+        "2026-11-10T09:40:00Z",
+        [_winner_market(
+            "Moselle Open: Player A vs Player B",
+            ["Player A", "Player B"],
+            '["0.9995", "0.0005"]',
+        )],
+    )
+    delayed = _event(
+        "Moselle Open: Player C vs Player D",
+        "2026-11-10T11:50:00Z",
+        [_winner_market(
+            "Moselle Open: Player C vs Player D",
+            ["Player C", "Player D"],
+            '["0.485", "0.515"]',
+        )],
+    )
+    result = get_upcoming_matches(
+        http_get=_payload([finished, delayed]), now=now)
+    assert len(result) == 1
+    assert result[0]["player_a"] == "Player C"
 
 
 def test_http_error_returns_empty_list():
@@ -288,7 +326,7 @@ def test_level_filter_applies_before_limit():
             )],
         ),
     ]
-    result = get_upcoming_matches(http_get=_payload(challengers + tour))
+    result = get_upcoming_matches(http_get=_payload(challengers + tour), now=_NOW)
     assert len(result) == 2
     assert result[0]["tournament"] == "BNP Paribas Nordic Open"
     assert result[1]["tournament"] == "Moselle Open"
@@ -338,7 +376,7 @@ def test_wta_finals_excluded():
             '["0.615", "0.385"]',
         )],
     )
-    result = get_upcoming_matches(http_get=_payload([wta, atp]))
+    result = get_upcoming_matches(http_get=_payload([wta, atp]), now=_NOW)
     assert len(result) == 1
     assert result[0]["player_a"] == "Ben Shelton"
 
@@ -372,7 +410,8 @@ def test_match_time_prefers_start_time_over_start_date():
     )
     early_created_late_match["startTime"] = "2026-11-16T13:00:00Z"
     result = get_upcoming_matches(
-        http_get=_payload([early_created_late_match, late_created_early_match])
+        http_get=_payload([early_created_late_match, late_created_early_match]),
+        now=_NOW,
     )
     assert len(result) == 2
     # Sorted by match time (Nov 15 before Nov 16), not by

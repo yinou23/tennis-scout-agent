@@ -68,7 +68,7 @@ Rules, non-negotiable:
 import re
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from market_odds import (
     TIMEOUT_SECONDS,
@@ -92,6 +92,16 @@ GAMMA_EVENTS_URL = _GAMMA_EVENTS_URL = _GAMMA_EVENTS_BASE + "&offset=0"
 _MAX_GAMMA_PAGES = 10
 _GAMMA_PAGE_SIZE = 100
 MAX_MATCHES = 4
+# A match whose scheduled start is further in the past than
+# this is treated as started, not upcoming. Polymarket leaves
+# a match-winner market active for a while after the match
+# ends, so the closed flag alone does not drop finished
+# matches; without this, a finished match keeps showing with
+# a ~100% price (seen 2026-11-21: Alcaraz vs Shelton at
+# 0.9995 two hours after its 13:40Z start). 30 minutes
+# tolerates a delayed start (previous match running long)
+# while dropping a finished match soon after it ends.
+_STARTED_GRACE = timedelta(minutes=30)
 
 
 def _gamma_page_url(offset):
@@ -236,7 +246,7 @@ def _safe_fetch_page(args):
         return None
 
 
-def get_upcoming_matches(http_get=None, limit=MAX_MATCHES):
+def get_upcoming_matches(http_get=None, limit=MAX_MATCHES, now=None):
     """Return the soonest upcoming match-winner matches.
 
     Returns a list of at most `limit` dicts, soonest first:
@@ -251,12 +261,18 @@ def get_upcoming_matches(http_get=None, limit=MAX_MATCHES):
     `start_time` is the actual scheduled match time (event
     `startTime`, falling back to market `gameStartTime`, then
     to `startDate`). A match whose market has no usable price
-    is still returned, with polymarket None. Returns [] on
+    is still returned, with polymarket None. A match whose
+    scheduled start is more than _STARTED_GRACE in the past
+    is dropped: it has started (or is long over) and is not
+    upcoming. `now` is the reference time, defaulting to
+    real now; tests pass a fixed value. Returns [] on
     any HTTP error, timeout, or unrecognised response shape.
     Never raises.
     """
     if http_get is None:
         http_get = _default_http_get
+    if now is None:
+        now = datetime.now(timezone.utc)
     try:
         events = _fetch_gamma_pages(http_get, _MAX_GAMMA_PAGES)
         if not isinstance(events, list):
@@ -289,6 +305,11 @@ def get_upcoming_matches(http_get=None, limit=MAX_MATCHES):
                 continue
             start, start_iso = _match_start_time(event, match)
             if start is None:
+                continue
+            # Started (or long over), not upcoming. The closed
+            # flag alone does not drop it: Polymarket leaves
+            # the market active after the match ends.
+            if start < now - _STARTED_GRACE:
                 continue
             # Dedupe: the same event can appear on several
             # pages (and a test stub returns one payload for
