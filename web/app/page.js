@@ -117,12 +117,11 @@ const STRINGS = {
     last10Info: "最近 2 个月内的胜率；如果超过 10 场，只算最近 10 场。",
     h2h: "H2H",
     h2hInfo: "两人历史交手的胜负场次。",
-    marketNote: "市场概率是投注市场投出来的，和模型概率是两回事，只做对照，不混在一起。只读行情，不下单。球员名字后的绿色数字是模型概率；蓝色胶囊是 Polymarket，橙色胶囊是 Kalshi；差值是模型和各市场之间最大的那个差距。",
+    marketNote: "市场概率是投注市场投出来的，和模型概率是两回事，只做对照，不混在一起。只读行情，不下单。球员名字后的绿色数字是模型概率；蓝色胶囊是 Polymarket，橙色胶囊是 Kalshi；把鼠标移到球员名字上，可以看到模型和各市场之间最大的差距。",
     marketEmpty: "Polymarket、Kalshi 暂无市场",
     marketPolymarket: "Polymarket",
     marketKalshi: "Kalshi",
-    marketPlayer: "球员 · 模型",
-    marketDiff: "差值",
+    marketDiffHover: "模型和市场最大差距：",
     marketUnavailable: "市场数据暂时不可用",
     marketLoading: "正在拉取市场数据",
     marketUpdateFailed: "更新失败，显示旧数据",
@@ -186,12 +185,11 @@ const STRINGS = {
     last10Info: "Win rate in the last 2 months; if more than 10 matches, only the last 10 count.",
     h2h: "H2H",
     h2hInfo: "Head-to-head wins for each side.",
-    marketNote: "Market probabilities come from betting markets. They are separate from the model probability, shown only for comparison. Read-only prices, no trading. The green number after a player's name is the model probability; blue pill is Polymarket, orange pill is Kalshi; the diff is the largest gap between the model and any market.",
+    marketNote: "Market probabilities come from betting markets. They are separate from the model probability, shown only for comparison. Read-only prices, no trading. The green number after a player's name is the model probability; blue pill is Polymarket, orange pill is Kalshi; hover over a player's name to see the largest gap between the model and any market.",
     marketEmpty: "No markets on Polymarket or Kalshi",
     marketPolymarket: "Polymarket",
     marketKalshi: "Kalshi",
-    marketPlayer: "Player · Model",
-    marketDiff: "Diff",
+    marketDiffHover: "Largest gap vs market:",
     marketUnavailable: "Market data unavailable",
     marketLoading: "Loading market data",
     marketUpdateFailed: "Refresh failed, showing older data",
@@ -934,10 +932,9 @@ export default function Home() {
             ) : (
             <div className="market-in-gauge">
               <div className="market-table">
-                <span className="market-col-label">{t.marketPlayer}</span>
+                <span aria-hidden="true" />
                 <span className="market-col-label">{t.marketPolymarket}</span>
                 <span className="market-col-label">{t.marketKalshi}</span>
-                <span className="market-col-label">{t.marketDiff}</span>
                 {marketRefreshFailed && <p className="market-status">{t.marketUpdateFailed}</p>}
                 {market.status === "loading" && <p className="market-status">{t.marketLoading}</p>}
                 {market.status === "unavailable" && <p className="market-status">{t.marketUnavailable}</p>}
@@ -959,13 +956,12 @@ export default function Home() {
                       .map((g) => ({ source: g.source, d: g.d - p.model }));
                     const maxGap = gaps.length ? gaps.reduce((a, b) => (Math.abs(b.d) > Math.abs(a.d) ? b : a)) : null;
                     const diff = maxGap ? Math.round(maxGap.d * 100) : null;
-                    const notable = diff !== null && Math.abs(diff) > 5;
+                    const diffTitle = diff !== null ? `${t.marketDiffHover} ${diff > 0 ? "+" : ""}${diff}% (${maxGap.source})` : undefined;
                     return (
                       <Fragment key={p.name}>
-                        <span className="market-player">{lastName(p.name)}{" "}<span className={`market-pill market-pill-model${p.model === null || p.model === undefined ? " market-pill-none" : ""}`}>{p.model !== null && p.model !== undefined ? `${Math.round(p.model * 100)}%` : "-"}</span></span>
+                        <span className="market-player" title={diffTitle}>{lastName(p.name)}{" "}<span className={`market-pill market-pill-model${p.model === null || p.model === undefined ? " market-pill-none" : ""}`}>{p.model !== null && p.model !== undefined ? `${Math.round(p.model * 100)}%` : "-"}</span></span>
                         <span className="market-cell"><span className={`market-pill market-pill-poly${p.poly === null || p.poly === undefined ? " market-pill-none" : ""}`}>{p.poly !== null && p.poly !== undefined ? `${Math.round(p.poly * 100)}%` : "-"}</span></span>
                         <span className="market-cell"><span className={`market-pill market-pill-kalshi${p.kalshi === null || p.kalshi === undefined ? " market-pill-none" : ""}`}>{p.kalshi !== null && p.kalshi !== undefined ? `${Math.round(p.kalshi * 100)}%` : "-"}</span></span>
-                        <span className={`market-diff${notable ? " market-diff-notable" : ""}`} title={maxGap ? maxGap.source : undefined}>{diff !== null ? `${diff > 0 ? "+" : ""}${diff}%` : "-"}</span>
                       </Fragment>
                     );
                   });
