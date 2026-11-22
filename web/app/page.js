@@ -957,12 +957,12 @@ export default function Home() {
                     const maxGap = gaps.length ? gaps.reduce((a, b) => (Math.abs(b.d) > Math.abs(a.d) ? b : a)) : null;
                     const diff = maxGap ? Math.round(maxGap.d * 100) : null;
                     const diffTitle = diff !== null ? `${t.marketDiffHover} ${diff > 0 ? "+" : ""}${diff}% (${maxGap.source})` : undefined;
-                    const playerLabel = <>{lastName(p.name)}{" "}<span className={`market-pill market-pill-model${p.model === null || p.model === undefined ? " market-pill-none" : ""}`}>{p.model !== null && p.model !== undefined ? `${Math.round(p.model * 100)}%` : "-"}</span></>;
+                    const playerLabel = <>{lastName(p.name)}{" "}<span className={`market-pill market-pill-model${p.model === null || p.model === undefined ? " market-pill-none" : ""}`}>{p.model !== null && p.model !== undefined ? `${(p.model * 100).toFixed(1)}%` : "-"}</span></>;
                     return (
                       <Fragment key={p.name}>
                         <span className="market-player">{diffTitle ? <Tip text={diffTitle}>{playerLabel}</Tip> : playerLabel}</span>
-                        <span className="market-cell"><span className={`market-pill market-pill-poly${p.poly === null || p.poly === undefined ? " market-pill-none" : ""}`}>{p.poly !== null && p.poly !== undefined ? `${Math.round(p.poly * 100)}%` : "-"}</span></span>
-                        <span className="market-cell"><span className={`market-pill market-pill-kalshi${p.kalshi === null || p.kalshi === undefined ? " market-pill-none" : ""}`}>{p.kalshi !== null && p.kalshi !== undefined ? `${Math.round(p.kalshi * 100)}%` : "-"}</span></span>
+                        <span className="market-cell"><span className={`market-pill market-pill-poly${p.poly === null || p.poly === undefined ? " market-pill-none" : ""}`}>{p.poly !== null && p.poly !== undefined ? `${(p.poly * 100).toFixed(1)}%` : "-"}</span></span>
+                        <span className="market-cell"><span className={`market-pill market-pill-kalshi${p.kalshi === null || p.kalshi === undefined ? " market-pill-none" : ""}`}>{p.kalshi !== null && p.kalshi !== undefined ? `${(p.kalshi * 100).toFixed(1)}%` : "-"}</span></span>
                       </Fragment>
                     );
                   });
