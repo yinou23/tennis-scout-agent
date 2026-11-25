@@ -11,3 +11,5 @@ psycopg[binary]
 mcp
 uvicorn
 pytest
+numpy
+scikit-learn

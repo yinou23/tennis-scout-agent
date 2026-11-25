@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "bac
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 from align import _is_team_exhibition, align_matches  # noqa: E402
+from db import get_sqlite_path  # noqa: E402
 from elo_state import EloState, verify_against_history  # noqa: E402
 from metrics import devig, ece, paired_diff, score_outcome  # noqa: E402
 from names import name_key, normalize_name, pair_key  # noqa: E402
@@ -197,6 +198,7 @@ def test_elo_state_calibration_is_predict_only():
     assert st_a.surface_rating == st_b.surface_rating
 
 
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_elo_recompute_matches_history_tables():
     from db import get_connection
     conn = get_connection()
@@ -401,6 +403,7 @@ def test_logreg_container_has_no_intercept_and_is_symmetric():
         assert p_swap == pytest.approx(1.0 - p, abs=1e-9)
 
 
+@pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_elo_only_container_reproduces_baseline():
     """Full-walk sanity check: elo-only logreg lands near the locked
     baseline validation Brier 0.2185 (main-tour non-team, n=5,464)."""
