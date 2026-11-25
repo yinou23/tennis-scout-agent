@@ -1,0 +1,3 @@
+# Downloaded odds files and run outputs are local only, never committed.
+*
+!.gitignore
