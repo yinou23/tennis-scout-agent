@@ -64,7 +64,7 @@ def _snapshot(fixtures):
         "tier": "FREE",
         "endpoint": "/matches?status=live&limit=200&offset=0",
         "status_requested": "live",
-        "historical_data_as_of": "2026-05-25",
+        "historical_data_as_of": "2026-11-16",
         "snapshot_note": "Point-in-time snapshot, not a live feed.",
         "count": len(fixtures),
         "fixtures": fixtures,
@@ -104,7 +104,7 @@ def test_build_live_section_includes_metadata_and_fixtures():
     assert "Sets 1-0, Games 6-4, 3-4" in section
     assert "Jannik Sinner vs Carlos Alcaraz" in section
     assert "No score yet" in section
-    assert "Historical data as of: 2026-05-25 (unchanged by this section)" in section
+    assert "Historical data as of: 2026-11-16 (unchanged by this section)" in section
     assert "not a live feed" in section
 
 

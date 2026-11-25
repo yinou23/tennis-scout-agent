@@ -48,7 +48,7 @@ def build_ask_prompt(question, context_text):
         "lists with - or *.\n"
         "- Keep the answer focused and concise. " + lang_line + "\n\n"
         "Database facts (verified, from the match database, the Elo model, and the betting markets; "
-        "data as of 2026-05-25, market prices are live):\n"
+        "data as of 2026-11-16, market prices are live):\n"
         + context_text
         + "\n\nQuestion: "
         + question

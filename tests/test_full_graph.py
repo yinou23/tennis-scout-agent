@@ -35,30 +35,30 @@ from full_graph import plan_with_llm_graph, run_full_graph
 def _fake_templated_report():
     return {
         "text": (
-            "Final probability (calibrated): Jannik Sinner 0.6378, Carlos Alcaraz 0.3622 "
+            "Final probability (calibrated): Jannik Sinner 0.5847, Carlos Alcaraz 0.4153 "
             "[Surface blend: Hard, prior=100] [Calibration: a=0.8]\n"
-            "Blended probability: Jannik Sinner 0.6698, Carlos Alcaraz 0.3302. "
-            "Elo: Jannik Sinner overall 2283.1, Hard blended 2247.6; "
-            "Carlos Alcaraz overall 2176.7, Hard blended 2124.7. "
+            "Blended probability: Jannik Sinner 0.6053, Carlos Alcaraz 0.3947. "
+            "Elo: Jannik Sinner overall 2300.0, Hard blended 2251.7; "
+            "Carlos Alcaraz overall 2218.4, Hard blended 2177.4. "
             "Head-to-head: 17 meetings, Jannik Sinner 7 wins, Carlos Alcaraz 10 wins. "
-            "Data as of 2026-05-25, not live."
+            "Data as of 2026-11-16, not live."
         ),
         "values": [
-            "0.6378", "0.3622", "0.6698", "0.3302",
-            "2283.1", "2247.6", "2176.7", "2124.7",
+            "0.5847", "0.4153", "0.6053", "0.3947",
+            "2300.0", "2251.7", "2218.4", "2177.4",
             "17", "7", "10",
         ],
         "tags": ["[Surface blend: Hard, prior=100]", "[Calibration: a=0.8]"],
         "surface": "Hard",
         "surface_applied": True,
-        "prob_a_calibrated": 0.6378,
-        "prob_b_calibrated": 0.3622,
-        "prob_a_blended": 0.6698,
-        "prob_b_blended": 0.3302,
+        "prob_a_calibrated": 0.5847,
+        "prob_b_calibrated": 0.4153,
+        "prob_a_blended": 0.6053,
+        "prob_b_blended": 0.3947,
         "tools": {
             "match": {
-                "player_a": {"overall_elo": 2283.1, "blended_elo": 2247.6},
-                "player_b": {"overall_elo": 2176.7, "blended_elo": 2124.7},
+                "player_a": {"overall_elo": 2300.0, "blended_elo": 2251.7},
+                "player_b": {"overall_elo": 2218.4, "blended_elo": 2177.4},
             },
             "h2h": {"total": 17, "wins_a": 7, "wins_b": 10},
         },
@@ -68,13 +68,13 @@ def _fake_templated_report():
 def _correct_llm_text():
     return (
         "Jannik Sinner is the favorite on Hard. "
-        "Final probability (calibrated): Jannik Sinner 0.6378, Carlos Alcaraz 0.3622 "
+        "Final probability (calibrated): Jannik Sinner 0.5847, Carlos Alcaraz 0.4153 "
         "[Surface blend: Hard, prior=100] [Calibration: a=0.8] "
-        "Blended probability was Jannik Sinner 0.6698, Carlos Alcaraz 0.3302. "
-        "Elo: Jannik Sinner overall 2283.1, Hard blended 2247.6; "
-        "Carlos Alcaraz overall 2176.7, Hard blended 2124.7. "
+        "Blended probability was Jannik Sinner 0.6053, Carlos Alcaraz 0.3947. "
+        "Elo: Jannik Sinner overall 2300.0, Hard blended 2251.7; "
+        "Carlos Alcaraz overall 2218.4, Hard blended 2177.4. "
         "Head-to-head: 17 meetings, Jannik Sinner 7 wins, Carlos Alcaraz 10 wins. "
-        "Data as of 2026-05-25, not live."
+        "Data as of 2026-11-16, not live."
     )
 
 
@@ -152,7 +152,7 @@ def test_full_graph_llm_planner_happy_path_sequential():
     assert final.get("error") is None, final
     assert final["planner_source"] == "llm"
     assert final["verification"]["ok"] is True
-    assert "0.6378" in final["final_text"]
+    assert "0.5847" in final["final_text"]
 
 
 def test_full_graph_rule_fallback_planner_still_delivers_labelled():
@@ -181,7 +181,7 @@ def test_full_graph_planner_none_returns_error_not_report():
     )
     assert final.get("error") == "no_template_matched"
     assert final["planner_source"] == "rule_fallback"
-    assert "0.6378" not in final.get("final_text", "") or "ERROR" in final.get("final_text", "")
+    assert "0.5847" not in final.get("final_text", "") or "ERROR" in final.get("final_text", "")
 
 
 def test_full_graph_non_match_planner_returns_error_not_report():
@@ -194,7 +194,7 @@ def test_full_graph_non_match_planner_returns_error_not_report():
         use_langgraph=False,
     )
     assert final.get("error") == "unsupported_plan:h2h"
-    assert "0.6378" not in final.get("final_text", "") or "ERROR" in final.get("final_text", "")
+    assert "0.5847" not in final.get("final_text", "") or "ERROR" in final.get("final_text", "")
 
 
 @pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
@@ -210,13 +210,13 @@ def test_full_graph_hard_end_to_end_with_fake_planner_and_writer():
             llm_writer_func=lambda report, question: {
                 "text": (
                     "Jannik Sinner is the favorite on Hard. "
-                    "Final probability (calibrated): Jannik Sinner 0.6378, Carlos Alcaraz 0.3622 "
+                    "Final probability (calibrated): Jannik Sinner 0.5847, Carlos Alcaraz 0.4153 "
                     "[Surface blend: Hard, prior=100] [Calibration: a=0.8] "
-                    "Blended probability was Jannik Sinner 0.6698, Carlos Alcaraz 0.3302. "
-                    "Elo: Jannik Sinner overall 2283.1, Hard blended 2247.6; "
-                    "Carlos Alcaraz overall 2176.7, Hard blended 2124.7. "
+                    "Blended probability was Jannik Sinner 0.6053, Carlos Alcaraz 0.3947. "
+                    "Elo: Jannik Sinner overall 2300.0, Hard blended 2251.7; "
+                    "Carlos Alcaraz overall 2218.4, Hard blended 2177.4. "
                     "Head-to-head: 17 meetings, Jannik Sinner 7 wins, Carlos Alcaraz 10 wins. "
-                    "Data as of 2026-05-25, not live."
+                    "Data as of 2026-11-16, not live."
                 ),
                 "model": "fake",
                 "source": "llm",
@@ -225,5 +225,5 @@ def test_full_graph_hard_end_to_end_with_fake_planner_and_writer():
     assert final.get("error") is None, final
     assert final["planner_source"] == "llm"
     assert final["verification"]["ok"] is True, final["verification"]
-    assert "0.6378" in final["final_text"]
+    assert "0.5847" in final["final_text"]
     assert final["_used_langgraph"] is True, "expected real LangGraph on Mac, got fallback"

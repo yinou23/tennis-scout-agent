@@ -30,7 +30,7 @@ Shape returned, for Sinner vs Alcaraz Hard:
     "prob_b_calibrated": 0.3622,
     "prob_a_blended": 0.6698,
     "prob_b_blended": 0.3302,
-    "data_as_of": "2026-05-25",
+    "data_as_of": "2026-11-16",
     "a": {
       "name": "Jannik Sinner",
       "elo": {"overall": 2283.1, "surface_elo": 2236.0,

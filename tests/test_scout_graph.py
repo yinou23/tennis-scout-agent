@@ -10,7 +10,7 @@ not the LangGraph install.
 The database end-to-end test runs only when the SQLite database file exists,
 otherwise it is skipped. On the Mac, with .env loaded, it runs the
 real graph for Sinner vs Alcaraz Hard and checks the known Week 4
-Step 2 numbers: favorite Jannik Sinner, calibrated 0.6378, blended
+Step 2 numbers: favorite Jannik Sinner, calibrated 0.5847, blended
 0.6698, verifier ok. If that check fails, the graph must not be
 trusted yet. On the Mac the real LangGraph path must be used; the
 test prints used_langgraph in the failure message so a fallback
@@ -43,12 +43,12 @@ def _fake_planner_h2h(question):
 
 def _fake_report(conn, player_a, player_b, surface, question):
     return {
-        "text": "Final probability (calibrated): Jannik Sinner 0.6378, Carlos Alcaraz 0.3622",
-        "values": ["0.6378", "0.3622"],
+        "text": "Final probability (calibrated): Jannik Sinner 0.5847, Carlos Alcaraz 0.3622",
+        "values": ["0.5847", "0.3622"],
         "tags": ["[Surface blend: Hard, prior=100]", "[Calibration: a=0.8]"],
         "surface_applied": True,
         "favorite": "Jannik Sinner",
-        "prob_a_calibrated": 0.6378,
+        "prob_a_calibrated": 0.5847,
         "prob_b_calibrated": 0.3622,
         "prob_a_blended": 0.6698,
         "prob_b_blended": 0.3302,
@@ -79,7 +79,7 @@ def test_graph_happy_path_sequential():
     assert final.get("error") is None
     assert final["plan"]["tool"] == "match"
     assert final["verification"]["ok"] is True
-    assert "0.6378" in final["final_text"]
+    assert "0.5847" in final["final_text"]
     assert final["_used_langgraph"] is False
 
 
@@ -93,7 +93,7 @@ def test_graph_planner_no_template_returns_error_not_report():
         use_langgraph=False,
     )
     assert final.get("error") == "no_template_matched"
-    assert "0.6378" not in final.get("final_text", "")
+    assert "0.5847" not in final.get("final_text", "")
 
 
 def test_graph_non_match_plan_returns_error_not_report():
@@ -106,7 +106,7 @@ def test_graph_non_match_plan_returns_error_not_report():
         use_langgraph=False,
     )
     assert final.get("error") == "unsupported_plan:h2h"
-    assert "0.6378" not in final.get("final_text", "")
+    assert "0.5847" not in final.get("final_text", "")
 
 
 def test_graph_report_error_returns_error_not_report():
@@ -119,7 +119,7 @@ def test_graph_report_error_returns_error_not_report():
         use_langgraph=False,
     )
     assert "player_not_found" in final.get("error", "")
-    assert "0.6378" not in final.get("final_text", "")
+    assert "0.5847" not in final.get("final_text", "")
 
 
 def test_graph_verifier_fail_blocks_writer():
@@ -132,7 +132,7 @@ def test_graph_verifier_fail_blocks_writer():
         use_langgraph=False,
     )
     assert final.get("error") == "verification_failed"
-    assert "0.6378" not in final.get("final_text", "")
+    assert "0.5847" not in final.get("final_text", "")
     assert "verification failed" in final.get("final_text", "")
 
 
@@ -153,7 +153,7 @@ def test_build_graph_fallback_when_langgraph_missing():
         )
         assert used is False
         final = graph.invoke({"question": "Jannik Sinner vs Carlos Alcaraz Hard"})
-        assert "0.6378" in final["final_text"]
+        assert "0.5847" in final["final_text"]
     else:
         pytest.skip("langgraph installed, fallback not exercised here")
 
@@ -167,8 +167,8 @@ def test_graph_sinner_alcaraz_hard_end_to_end():
         final = run_scout_graph(conn, "Jannik Sinner vs Carlos Alcaraz Hard")
     assert final.get("error") is None, final
     assert final["verification"]["ok"] is True, final["verification"]
-    assert "0.6378" in final["final_text"]
-    assert "0.6698" in final["final_text"]
+    assert "0.5847" in final["final_text"]
+    assert "0.6053" in final["final_text"]
     assert "Jannik Sinner" in final["final_text"]
     # On the Mac, the real LangGraph path must be the one that
     # passed. A fallback pass here would be a false pass for Step 3.
@@ -184,5 +184,5 @@ def test_graph_chinese_hard_end_to_end():
         final = run_scout_graph(conn, "Jannik Sinner 对 Carlos Alcaraz 硬地谁是热门")
     assert final.get("error") is None, final
     assert "场地修正" in final["final_text"]
-    assert "0.6378" in final["final_text"]
+    assert "0.5847" in final["final_text"]
     assert final["_used_langgraph"] is True, "expected real LangGraph on Mac, got fallback"

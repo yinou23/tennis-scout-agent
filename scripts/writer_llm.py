@@ -22,7 +22,7 @@ Prompt rules, enforced by the verifier, not just by trust:
   - Do not add any number not in the template. That includes
     generic numbers like 0.5, 50 percent, section numbers,
     tool numbers, years, and dates, except dates already in the
-    template (data as of 2026-05-25 and retirement dates).
+    template (data as of 2026-11-16 and retirement dates).
   - Do not number sections. Write section headings as words only.
   - Keep the correction tags on the final probability line
     exactly as in the template, in the same language as the report.

@@ -20,10 +20,10 @@ What this script does, and what it does not do:
   and exits 1. An unverified report is never published as
   a sample, even if the report text looks plausible.
   It does NOT claim live data. The data-as-of is
-  2026-05-25, the same snapshot used in Weeks 2 to 4, and
+  2026-11-16, the same snapshot used in Weeks 2 to 4, and
   the coverage note says so in plain terms. It does NOT
   predict a specific upcoming real match, it does NOT
-  include live scores, recent results after 2026-05-25,
+  include live scores, recent results after 2026-11-16,
   draws, or injury news. Those are Week 7 live-fixture
   work, not this scaffold, and they must not be added to
   a sample by editing this file's coverage note to sound
@@ -76,7 +76,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from scout_report import build_scout_report, verify_scout_report  # noqa: E402
 
-DATA_AS_OF = "2026-05-25"
+DATA_AS_OF = "2026-11-16"
 TOOL_TRACE = [
     "get_match_probability",
     "get_player_elo (player_a)",
@@ -130,7 +130,7 @@ def build_sample_markdown(report, player_a, player_b, surface, latency_ms):
     lines.append("")
     lines.append("| Source | Tables used | Data as of |")
     lines.append("| --- | --- | --- |")
-    lines.append("| Jeff Sackmann ATP data, via local PostgreSQL import | atp_players, atp_matches, atp_elo_current, atp_surface_elo_history, atp_form_history, atp_match_games | 2026-05-25, not live |")
+    lines.append("| Jeff Sackmann ATP data, via local PostgreSQL import | atp_players, atp_matches, atp_elo_current, atp_surface_elo_history, atp_form_history, atp_match_games | 2026-11-16, not live |")
     lines.append("")
     lines.append("## Tool trace")
     lines.append("")
@@ -145,7 +145,7 @@ def build_sample_markdown(report, player_a, player_b, surface, latency_ms):
     lines.append("")
     lines.append("## Coverage note")
     lines.append("")
-    lines.append("Historical only. This sample uses matches imported to 2026-05-25, and does not include matches, scores, draws, or news after that date. It does not predict a specific upcoming real match, and it does not include live scores or in-progress points. Form is anchored at the data-as-of date, not at a hypothetical next match. Tourney_date in the source data is tournament start, not exact match day, so the 52-week form window is accurate to within a tournament length. Serve statistics are sparse before the 1990s and are not used as a probability input in this report. Rankings in the import go to 2026-06-08, but the report's data-as-of is 2026-05-25, the maximum match date, and that is the date that governs the report.")
+    lines.append("Historical only. This sample uses matches imported to 2026-11-16, and does not include matches, scores, draws, or news after that date. It does not predict a specific upcoming real match, and it does not include live scores or in-progress points. Form is anchored at the data-as-of date, not at a hypothetical next match. Tourney_date in the source data is tournament start, not exact match day, so the 52-week form window is accurate to within a tournament length. Serve statistics are sparse before the 1990s and are not used as a probability input in this report. Rankings in the import go to 2026-06-08, but the report's data-as-of is 2026-11-16, the maximum match date, and that is the date that governs the report.")
     lines.append("")
     return "\n".join(lines)
 

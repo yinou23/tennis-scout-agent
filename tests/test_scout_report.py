@@ -9,7 +9,7 @@ not the database.
 The database end-to-end test runs only when the SQLite database file exists,
 otherwise it is skipped. On the Mac, with .env loaded, it asks for
 Sinner vs Alcaraz Hard and checks the known Week 3 numbers:
-favorite Jannik Sinner, calibrated 0.6378, blended 0.6698, surface
+favorite Jannik Sinner, calibrated 0.5847, blended 0.6698, surface
 tag present, calibration tag present, verifier ok. If that check
 fails, the report builder must not be trusted yet.
 """
@@ -41,14 +41,14 @@ def _base_report():
     # A minimal report that follows the template rules: every number
     # is either in values or in ALLOWED_PARAMETERS, tags are correct.
     text = (
-        "Final probability (calibrated): Jannik Sinner 0.6378, "
+        "Final probability (calibrated): Jannik Sinner 0.5847, "
         "Carlos Alcaraz 0.3622 [Surface blend: Hard, prior=100] "
         "[Calibration: a=0.8]\n"
-        "Data as of 2026-05-25, not live."
+        "Data as of 2026-11-16, not live."
     )
     return {
         "text": text,
-        "values": ["0.6378", "0.3622"],
+        "values": ["0.5847", "0.3622"],
         "tags": ["[Surface blend: Hard, prior=100]", "[Calibration: a=0.8]"],
         "surface_applied": True,
     }
@@ -72,7 +72,7 @@ def test_verifier_catches_invented_number():
 
 def test_verifier_catches_missing_value():
     report = _base_report()
-    report["values"] = ["0.6378", "0.3622", "0.1234"]
+    report["values"] = ["0.5847", "0.3622", "0.1234"]
     check = verify_scout_report(report)
     assert check["ok"] is False
     assert "0.1234" in check["missing_values"]
@@ -109,7 +109,7 @@ def test_verifier_passes_overall_only_report_without_surface_tag():
         "text": (
             "Final probability (calibrated): Jannik Sinner 0.6201, "
             "Carlos Alcaraz 0.3799 [Calibration: a=0.8]\n"
-            "Data as of 2026-05-25, not live."
+            "Data as of 2026-11-16, not live."
         ),
         "values": ["0.6201", "0.3799"],
         "tags": ["[Calibration: a=0.8]"],
@@ -128,17 +128,17 @@ def test_sinner_alcaraz_hard_report_end_to_end():
         report = build_scout_report(conn, "Jannik Sinner", "Carlos Alcaraz", "Hard")
     assert "error" not in report
     assert report["favorite"] == "Jannik Sinner"
-    assert report["prob_a_calibrated"] == 0.6378
-    assert report["prob_a_blended"] == 0.6698
+    assert report["prob_a_calibrated"] == 0.5847
+    assert report["prob_a_blended"] == 0.6053
     assert report["surface_applied"] is True
     assert any("Surface blend" in t for t in report["tags"])
     assert any("Calibration" in t for t in report["tags"])
-    assert "0.6378" in report["text"]
-    assert "0.6698" in report["text"]
-    assert "2283.1" in report["text"]
-    assert "2247.6" in report["text"]
-    assert "2176.7" in report["text"]
-    assert "2124.7" in report["text"]
+    assert "0.5847" in report["text"]
+    assert "0.6053" in report["text"]
+    assert "2300.0" in report["text"]
+    assert "2251.7" in report["text"]
+    assert "2218.4" in report["text"]
+    assert "2177.4" in report["text"]
     # Head-to-head, verified in Week 3.
     assert "17" in report["text"]
     check = verify_scout_report(report)
@@ -176,7 +176,7 @@ def test_sinner_alcaraz_hard_chinese_report():
     assert "error" not in report
     assert "场地修正" in report["text"]
     assert "校准" in report["text"]
-    assert "0.6378" in report["text"]
+    assert "0.5847" in report["text"]
     check = verify_scout_report(report)
     assert check["ok"] is True, check
 

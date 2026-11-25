@@ -4,7 +4,7 @@ Scope, agreed in the Week 7 Step 2 research note and the user questions
 that followed it:
 - This script does NOT update the Sackmann database, and it does NOT
   recompute Elo, form, games, or head-to-head. The historical TSA data
-  remains as of 2026-05-25. This file is a separate, point-in-time
+  remains as of 2026-11-16. This file is a separate, point-in-time
   snapshot, with its own fetched_at timestamp, and it must never be
   presented as a live feed or as updated historical data.
 - FREE tier only. Only status=live and status=upcoming are fetched.
@@ -67,10 +67,10 @@ from pathlib import Path
 
 BASE_URL = "https://api.livetennisapi.com/api/public/v1"
 ALLOWED_STATUS = ("live", "upcoming")
-HISTORICAL_DATA_AS_OF = "2026-05-25"
+HISTORICAL_DATA_AS_OF = "2026-11-16"
 SNAPSHOT_NOTE = (
     "Point-in-time snapshot, not a live feed. "
-    "Historical TSA data remains as of 2026-05-25 and is not updated by this file. "
+    "Historical TSA data remains as of 2026-11-16 and is not updated by this file. "
     "Provider player and match ids do not match Sackmann ids, so no join to "
     "Sackmann players, Elo, form, or head-to-head is made here."
 )

@@ -94,12 +94,12 @@ def test_end_to_end_sinner_alcaraz_hard():
         outputs = execute_plan(conn, plan)
     answer = build_answer(plan, outputs)
     # Tool 5 numbers, verified in the previous step: favorite Sinner,
-    # calibrated 0.6378, blended 0.6698. If the answer does not contain
+    # calibrated 0.5847, blended 0.6053. If the answer does not contain
     # them, it did not come from the tools.
     assert "Jannik Sinner" in answer
-    assert "0.6378" in answer
-    assert "0.6698" in answer
-    assert "2026-05-25" in answer
+    assert "0.5847" in answer
+    assert "0.6053" in answer
+    assert "2026-11-16" in answer
 
 
 # ---------------------------------------------------------------------------

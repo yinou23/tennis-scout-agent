@@ -73,7 +73,7 @@ Failure log:
 
 Expected values and data-as-of:
   All expected values in cases.jsonl are a snapshot of the
-  database at data-as-of 2026-05-25, the same snapshot used
+  database at data-as-of 2026-11-16, the same snapshot used
   in Weeks 2 to 4. If the database is re-imported with newer
   data, expected values must be re-verified and updated
   deliberately, with a note in the case file, never silently

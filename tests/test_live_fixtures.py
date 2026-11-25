@@ -128,7 +128,7 @@ def test_build_snapshot_metadata_and_note():
     assert snapshot["has_more"] is False
     assert snapshot["fetched_at"].endswith("Z")
     assert "not a live feed" in snapshot["snapshot_note"]
-    assert "2026-05-25" in snapshot["snapshot_note"]
+    assert "2026-11-16" in snapshot["snapshot_note"]
     assert "Sackmann" in snapshot["snapshot_note"]
     assert json.dumps(snapshot).find("test-key-123") == -1
 

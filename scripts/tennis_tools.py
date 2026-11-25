@@ -22,7 +22,7 @@ What this tool does:
 What this tool does NOT do:
 - It does not predict a match (that is Tool 5, later).
 - It does not use live data. Elo tables are as of the Week 1
-  import: matches to 2026-05-25. The returned last_match_date
+  import: matches to 2026-11-16. The returned last_match_date
   is the player's own last match, not a live update.
 - It does not guess a player. If a name matches no player, it
   returns None. If it matches more than one player, it returns
@@ -166,7 +166,7 @@ def get_player_elo(conn, name):
         "matches_played": int(matches_played),
         "last_match_date": str(last_match_date) if last_match_date else None,
         "surfaces": surfaces,
-        "data_as_of": "Matches imported to 2026-05-25; Elo is not live.",
+        "data_as_of": "Matches imported to 2026-11-16; Elo is not live.",
     }
 
 
@@ -175,7 +175,7 @@ def get_player_elo(conn, name):
 # Tool 2: current form
 # ---------------------------------------------------------------------------
 # Definitions, same as Week 2, but anchored at the data-as-of date
-# (the maximum tourney_date in atp_matches, 2026-05-25), not at a
+# (the maximum tourney_date in atp_matches, 2026-11-16), not at a
 # hypothetical next match:
 # - last10 win form: win rate in the player's last 10 main-tour
 #   matches, regardless of time gap. If fewer than 10 matches exist,
@@ -457,7 +457,7 @@ def get_player_form(conn, name):
             "last52_games_won": g52_won,
             "last52_games_total": g52_total,
         },
-        "data_as_of": "Matches imported to 2026-05-25; form is not live.",
+        "data_as_of": "Matches imported to 2026-11-16; form is not live.",
     }
 
 
@@ -557,7 +557,7 @@ def get_head_to_head(conn, name_a, name_b):
         "wins_b": summary["wins_b"],
         "by_surface": summary["by_surface"],
         "last_5_meetings": recent,
-        "data_as_of": "Matches imported to 2026-05-25; head-to-head is not live.",
+        "data_as_of": "Matches imported to 2026-11-16; head-to-head is not live.",
     }
 
 
@@ -637,7 +637,7 @@ def get_player_surface_record(conn, name):
         "total_wins": total_wins,
         "total_losses": total_matches - total_wins,
         "overall_win_pct": _win_pct(total_wins, total_matches),
-        "data_as_of": "Matches imported to 2026-05-25; surface record is not live.",
+        "data_as_of": "Matches imported to 2026-11-16; surface record is not live.",
     }
 
 
@@ -756,7 +756,7 @@ def get_match_probability(conn, name_a, name_b, surface=None):
         "prob_a_calibrated": round(float(p_cal), 4),
         "prob_b_calibrated": round(float(1.0 - p_cal), 4),
         "favorite": result_players[favorite]["name"],
-        "data_as_of": "Matches imported to 2026-05-25; probability is not live.",
+        "data_as_of": "Matches imported to 2026-11-16; probability is not live.",
     }
 
 

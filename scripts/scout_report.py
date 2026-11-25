@@ -79,7 +79,7 @@ from tennis_tools import (  # noqa: E402
     get_player_surface_record,
 )
 
-DATA_AS_OF = "2026-05-25"
+DATA_AS_OF = "2026-11-16"
 PRIOR = 100
 CALIBRATION_A = 0.8
 
@@ -97,7 +97,11 @@ SURFACE_ZH = {
 # verifier can catch an invented number. In particular, tool names
 # are written without numbers, section headings have no numbers,
 # and K, initial Elo, and other Week 2 internals are not printed.
-ALLOWED_PARAMETERS = {"2", "10", "52", "100", "0.8", "2026", "05", "25"}
+# The date parts are derived from DATA_AS_OF (not hardcoded) so a
+# future data refresh cannot break verification the way the
+# 2026-05-25 -> 2026-11-16 change did (it flagged "11" and "16").
+ALLOWED_PARAMETERS = {"2", "10", "52", "100", "0.8"} | set(
+    DATA_AS_OF.split("-"))
 
 _NUMBER_RE = re.compile(r"\d+\.\d+|\d+")
 

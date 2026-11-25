@@ -7,7 +7,7 @@ Pure logic tests run everywhere, no database needed.
 The database smoke test runs only when the SQLite database file exists,
 otherwise it is skipped. On the Mac, with .env loaded, it checks
 Sinner against the known Week 2 top list: overall Elo about
-2283.1, 457 matches. If that check fails, the Elo table is not
+2300.0, 464 matches. If that check fails, the Elo table is not
 the one Week 2 produced, and the tool must not be trusted yet.
 """
 
@@ -54,8 +54,8 @@ def test_sinner_overall_elo_matches_week2_top_list():
     assert result is not None
     assert not result.get("ambiguous")
     assert result["name"] == "Jannik Sinner"
-    assert abs(result["overall_elo"] - 2283.1) < 1.0
-    assert result["matches_played"] == 457
+    assert abs(result["overall_elo"] - 2300.0) < 1.0
+    assert result["matches_played"] == 464
     # Surface breakdown must be present for all four surfaces.
     assert set(result["surfaces"].keys()) == set(SURFACES)
     for surface, info in result["surfaces"].items():
@@ -119,14 +119,19 @@ def test_sinner_form_is_sane():
         result = get_player_form(conn, "Jannik Sinner")
     assert result is not None
     assert not result.get("ambiguous")
-    assert result["anchor_date"] == "2026-05-25"
+    assert result["anchor_date"] == "2026-11-16"
     win = result["win_form"]
     assert 1 <= win["last10_n"] <= 10
     assert 0.0 <= win["last10_pct"] <= 1.0
     assert win["last10_wins"] == round(win["last10_pct"] * win["last10_n"])
-    assert 1 <= win["recent2m_n"] <= 10
-    assert 0.0 <= win["recent2m_pct"] <= 1.0
-    assert win["recent2m_wins"] == round(win["recent2m_pct"] * win["recent2m_n"])
+    assert 0 <= win["recent2m_n"] <= 10
+    if win["recent2m_n"] > 0:
+        assert 0.0 <= win["recent2m_pct"] <= 1.0
+        assert win["recent2m_wins"] == round(win["recent2m_pct"] * win["recent2m_n"])
+    else:
+        # No matches in the window (Sinner has not played since
+        # Wimbledon 2026): pct is None, not 0.
+        assert win["recent2m_pct"] is None
     assert win["last52_n"] >= 0
     if win["last52_n"] > 0:
         assert 0.0 <= win["last52_pct"] <= 1.0
@@ -136,9 +141,12 @@ def test_sinner_form_is_sane():
     assert 1 <= games["last10_matches"] <= 10
     assert 0.0 <= games["last10_games_pct"] <= 1.0
     assert games["last10_games_won"] <= games["last10_games_total"]
-    assert 1 <= games["recent2m_matches"] <= 10
-    assert 0.0 <= games["recent2m_games_pct"] <= 1.0
-    assert games["recent2m_games_won"] <= games["recent2m_games_total"]
+    assert 0 <= games["recent2m_matches"] <= 10
+    if games["recent2m_matches"] > 0:
+        assert 0.0 <= games["recent2m_games_pct"] <= 1.0
+        assert games["recent2m_games_won"] <= games["recent2m_games_total"]
+    else:
+        assert games["recent2m_games_pct"] is None
     if games["last52_matches"] > 0:
         assert 0.0 <= games["last52_games_pct"] <= 1.0
     else:
@@ -245,10 +253,10 @@ def test_sinner_retirement_descriptor_is_consistent():
     else:
         assert ret["days_since_last_retirement"] >= 0
         assert ret["matches_since_last_retirement"] >= 0
-        # Anchor is 2026-05-25, days since must match the date.
+        # Anchor is 2026-11-16, days since must match the date.
         from datetime import date
 
-        anchor = date(2026, 5, 25)
+        anchor = date(2026, 11, 16)
         last_ret = date.fromisoformat(ret["last_retirement_date"])
         assert (anchor - last_ret).days == ret["days_since_last_retirement"]
         if ret["last_match_was_retirement"]:
@@ -269,7 +277,7 @@ def test_win_pct_helper():
 
 @pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_sinner_surface_record_sums_to_total_matches():
-    # Sinner's total matches are known from Tool 1: 457.
+    # Sinner's total matches are known from Tool 1: 464.
     # Per-surface totals must sum to that, otherwise a surface
     # was dropped or double-counted.
 
@@ -279,9 +287,9 @@ def test_sinner_surface_record_sums_to_total_matches():
         result = get_player_surface_record(conn, "Jannik Sinner")
     assert result is not None
     assert not result.get("ambiguous")
-    assert result["total_matches"] == 457
-    assert result["total_wins"] + result["total_losses"] == 457
-    assert sum(v["total"] for v in result["by_surface"].values()) == 457
+    assert result["total_matches"] == 464
+    assert result["total_wins"] + result["total_losses"] == 464
+    assert sum(v["total"] for v in result["by_surface"].values()) == 464
     for surface, info in result["by_surface"].items():
         assert info["wins"] + info["losses"] == info["total"]
         assert 0.0 <= info["win_pct"] <= 1.0
@@ -333,8 +341,8 @@ def test_sinner_alcaraz_hard_probability():
         result = get_match_probability(conn, "Jannik Sinner", "Carlos Alcaraz", "Hard")
     assert result is not None
     assert not result.get("ambiguous")
-    # Sinner's Hard blended Elo must match Tool 1: 2247.6.
-    assert abs(result["player_a"]["blended_elo"] - 2247.6) < 0.1
+    # Sinner's Hard blended Elo must match Tool 1: 2251.7.
+    assert abs(result["player_a"]["blended_elo"] - 2251.7) < 0.1
     assert result["player_a"]["surface_matches"] == 308
     # Probabilities must sum to 1, calibrated must be closer to 0.5.
     assert abs(result["prob_a_blended"] + result["prob_b_blended"] - 1.0) < 0.001
@@ -345,15 +353,15 @@ def test_sinner_alcaraz_hard_probability():
 
 @pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
 def test_sinner_alcaraz_overall_probability():
-    # Overall only: Sinner 2283.1 vs Alcaraz 2176.7, diff 106.4.
-    # Blended prob about 0.6485, calibrated about 0.6201.
+    # Overall only: Sinner 2300.0 vs Alcaraz 2218.4, diff 81.6.
+    # Blended prob about 0.6152, calibrated about 0.5928.
 
     from tennis_tools import get_match_probability
 
     with get_connection() as conn:
         result = get_match_probability(conn, "Jannik Sinner", "Carlos Alcaraz", None)
-    assert abs(result["prob_a_blended"] - 0.6485) < 0.001
-    assert abs(result["prob_a_calibrated"] - 0.6201) < 0.001
+    assert abs(result["prob_a_blended"] - 0.6152) < 0.001
+    assert abs(result["prob_a_calibrated"] - 0.5928) < 0.001
     assert result["favorite"] == "Jannik Sinner"
 
 

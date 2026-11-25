@@ -45,17 +45,17 @@ def test_fils_verdict_is_underrated():
             {"player_a": "Ben Shelton", "player_b": "Arthur Fils", "surface": "Hard"},
         )
     text = facts["context_text"]
-    assert "Arthur Fils: market average 38.5% vs model 57.1%" in text
-    assert "diff -18.6 points (market minus model). Verdict: underrated by the market." in text
-    assert "Ben Shelton: market average 61.5% vs model 42.9%" in text
-    assert "diff +18.6 points (market minus model). Verdict: overrated by the market." in text
+    assert "Arthur Fils: market average 38.5% vs model 45.2%" in text
+    assert "diff -6.7 points (market minus model). Verdict: underrated by the market." in text
+    assert "Ben Shelton: market average 61.5% vs model 54.8%" in text
+    assert "diff +6.7 points (market minus model). Verdict: overrated by the market." in text
 
 
-def test_h2h_is_one_one_not_zero_zero():
+def test_h2h_is_two_one_not_zero_zero():
     with patch("retrieve.get_market_odds", return_value=_FIXED_MARKET_ODDS), get_connection() as conn:
         facts = retrieve_facts(
             conn,
             "fils是否被低估",
             {"player_a": "Ben Shelton", "player_b": "Arthur Fils", "surface": "Hard"},
         )
-    assert "Head-to-head: Ben Shelton 1, Arthur Fils 1 (2 meetings)." in facts["context_text"]
+    assert "Head-to-head: Ben Shelton 2, Arthur Fils 1 (3 meetings)." in facts["context_text"]

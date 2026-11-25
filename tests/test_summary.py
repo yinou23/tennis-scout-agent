@@ -29,7 +29,7 @@ def _fake_report():
         "prob_b_calibrated": 0.3622,
         "prob_a_blended": 0.6698,
         "prob_b_blended": 0.3302,
-        "data_as_of": "2026-05-25",
+        "data_as_of": "2026-11-16",
         "tools": {
             "match": {
                 "player_a": {"name": "Jannik Sinner", "overall_elo": 2283.1, "surface_elo": 2236.0, "surface_matches": 308, "blended_elo": 2247.6},
@@ -80,7 +80,7 @@ def test_summary_top_level_probabilities():
     assert summary["prob_b_calibrated"] == 0.3622
     assert summary["prob_a_blended"] == 0.6698
     assert summary["prob_b_blended"] == 0.3302
-    assert summary["data_as_of"] == "2026-05-25"
+    assert summary["data_as_of"] == "2026-11-16"
 
 
 def test_summary_elo_per_player():

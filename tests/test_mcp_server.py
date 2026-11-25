@@ -68,7 +68,7 @@ def _fake_success_state():
     return {
         "final_text": (
             "Jannik Sinner is the favorite on Hard. "
-            "Final probability (calibrated): Jannik Sinner 0.6378, Carlos Alcaraz 0.3622 "
+            "Final probability (calibrated): Jannik Sinner 0.5847, Carlos Alcaraz 0.3622 "
             "[Surface blend: Hard, prior=100] [Calibration: a=0.8] "
             "Blended probability was Jannik Sinner 0.6698, Carlos Alcaraz 0.3302."
         ),
@@ -84,7 +84,7 @@ def _fake_success_state():
 def test_scouting_report_impl_success_with_fake_runner():
     payload = json.loads(_scouting_report_impl(None, "Jannik Sinner vs Carlos Alcaraz Hard", graph_runner=lambda conn, q: _fake_success_state()))
     assert "error" not in payload
-    assert "0.6378" in payload["final_text"]
+    assert "0.5847" in payload["final_text"]
     assert payload["planner_source"] == "llm"
     assert payload["verification"]["ok"] is True
 
@@ -113,8 +113,8 @@ def test_db_elo_tool_sinner():
 
     payload = _json.loads(get_player_elo_tool("Jannik Sinner"))
     assert "error" not in payload, payload
-    assert payload["overall_elo"] == 2283.1
-    assert payload["matches_played"] == 457
+    assert payload["overall_elo"] == 2300.0
+    assert payload["matches_played"] == 464
 
 
 @pytest.mark.skipif(not get_sqlite_path().exists(), reason="SQLite database file not found; set SQLITE_PATH or build it with scripts/pg_to_sqlite.py")
@@ -161,5 +161,5 @@ def test_db_prob_tool_sinner_alcaraz_hard():
 
     payload = _json.loads(get_match_probability_tool("Jannik Sinner", "Carlos Alcaraz", "Hard"))
     assert "error" not in payload, payload
-    assert payload["prob_a_calibrated"] == 0.6378
-    assert payload["prob_a_blended"] == 0.6698
+    assert payload["prob_a_calibrated"] == 0.5847
+    assert payload["prob_a_blended"] == 0.6053

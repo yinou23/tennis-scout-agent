@@ -84,8 +84,8 @@ function avatarSrc(name) {
 const STRINGS = {
   zh: {
     title: "Tennis Scout Agent",
-    dataCutoff: "数据截至 2026-05-25，排名截至 2026-06-08",
-    datasetLine: "比赛数据：Jeff Sackmann ATP 数据集 · 数据截至 2026-05-25，排名截至 2026-06-08",
+    dataCutoff: "数据截至 2026-11-16，排名截至 2026-06-08",
+    datasetLine: "比赛数据：Jeff Sackmann ATP 数据集 · 数据截至 2026-11-16，排名截至 2026-06-08",
     connected: "已连接",
     notConnected: "未连接",
     playerA: "球员 A",
@@ -147,13 +147,13 @@ const STRINGS = {
     errorNote: "失败时不显示没过的报告，这是特意这样做的。",
     emptyQuestion: "问题不能为空",
     networkError: "网络错误，请确认 API 已启动。",
-    footnote: "数据截至 2026-05-25，不是实时数据。报告里的数字来自数据库查询，不是模型凭空写出。状态、局数、退赛、交手只做描述，不进概率。",
+    footnote: "数据截至 2026-11-16，不是实时数据。报告里的数字来自数据库查询，不是模型凭空写出。状态、局数、退赛、交手只做描述，不进概率。",
     vs: "对阵",
   },
   en: {
     title: "Tennis Scout Agent",
-    dataCutoff: "Data as of 2026-05-25, rankings as of 2026-06-08",
-    datasetLine: "Match data: Jeff Sackmann ATP dataset · Data as of 2026-05-25, rankings as of 2026-06-08",
+    dataCutoff: "Data as of 2026-11-16, rankings as of 2026-06-08",
+    datasetLine: "Match data: Jeff Sackmann ATP dataset · Data as of 2026-11-16, rankings as of 2026-06-08",
     connected: "Connected",
     notConnected: "Not connected",
     playerA: "Player A",
@@ -215,7 +215,7 @@ const STRINGS = {
     errorNote: "A failed report is never shown as if it had passed. That is deliberate.",
     emptyQuestion: "Question cannot be empty",
     networkError: "Network error. Please check that the API is running.",
-    footnote: "Data as of 2026-05-25, not live. Numbers in the report come from database queries, not model text. Form, games, retirement, and head to head are descriptors only, not probability inputs.",
+    footnote: "Data as of 2026-11-16, not live. Numbers in the report come from database queries, not model text. Form, games, retirement, and head to head are descriptors only, not probability inputs.",
     vs: "vs",
   },
 };
@@ -376,7 +376,7 @@ function normalizeSummary(report) {
     prob_b_blended: asText(pick(base, ["prob_b_blended", "probB_blended"])),
     favorite: asText(pick(base, ["favorite"])),
     surface: asText(pick(base, ["surface"])) || asText(plan.surface),
-    data_as_of: asText(pick(base, ["data_as_of", "dataAsOf", "data_asof"])) || asText(report.data_as_of) || "2026-05-25",
+    data_as_of: asText(pick(base, ["data_as_of", "dataAsOf", "data_asof"])) || asText(report.data_as_of) || "2026-11-16",
     player_a: playerA,
     player_b: playerB,
     h2h,
@@ -569,7 +569,7 @@ export default function Home() {
 
   // Auto refresh: the market section is the only part of the page
   // that changes during the day. The model numbers come from
-  // the database as of 2026-05-25 and never move, so refresh
+  // the database as of 2026-11-16 and never move, so refresh
   // only re-fetches /market and only rewrites the market rows,
   // never the whole page, never the gauge or the side list.
   // The timer is 60 seconds after the last successful update.
@@ -643,7 +643,7 @@ export default function Home() {
 
   // Load the pre-generated default report (Sinner / Hard /
   // Alcaraz) from the static file instead of calling /report.
-  // The numbers come from the database as of 2026-05-25 and
+  // The numbers come from the database as of 2026-11-16 and
   // never move, so a cached copy is correct until the database
   // is updated, at which point default-report.json is
   // regenerated. If the file is missing, fall back to /report.

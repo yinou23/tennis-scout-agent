@@ -2,7 +2,7 @@
 
 Purpose: show the crowd's priced probability next to, never
 mixed with, the TSA model probability. The model probability
-is Elo, historical, data as of 2026-05-25, not live. A market
+is Elo, historical, data as of 2026-11-16, not live. A market
 probability is crowd money, live, and includes injuries, the
 draw, fees, and liquidity. A thin market is noisy. If the two
 disagree, that is a divergence to discuss, not an error in
@@ -65,6 +65,18 @@ Kalshi, read endpoints, no key for market data:
   build a stored market dataset. Kalshi sports contracts are
   blocked or in court in several US states, so a market that
   exists in the API may not be tradeable everywhere.
+
+  Exception (user decision, 2026-11-19): the paper-trading
+  recorder under scripts/paper_trading/ stores market prices
+  in a private SQLite log. That storage is the user's own
+  trading research only: it falls under Kalshi Developer
+  Agreement section 3.1's exception ("except for purposes
+  of facilitating your own trading on Kalshi"), with no
+  sharing with third parties, no redistribution, and no
+  commercial use. This module itself still stores nothing;
+  only the recorder stores, and only for that purpose.
+  Nothing from the recorder (prices, profit comparisons,
+  or charts) goes on the public site or in any public page.
 
 What this file does NOT do:
   It does not trade, does not place orders, and does not

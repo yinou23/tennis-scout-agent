@@ -21,7 +21,7 @@ script does the minimum, and nothing more:
   player names, tournament, tour, status, and score only.
 - It does NOT claim a live feed. The section states its own
   fetched_at, source, tier, and count, and states that the
-  historical data as of 2026-05-25 is unchanged by this section.
+  historical data as of 2026-11-16 is unchanged by this section.
 - It does NOT relabel tours. The tour field from the snapshot
   is shown as fetched, so an ITF W35 match reads as ITF, never
   as ATP main tour.
@@ -50,7 +50,7 @@ import json
 import sys
 from pathlib import Path
 
-HISTORICAL_DATA_AS_OF = "2026-05-25"
+HISTORICAL_DATA_AS_OF = "2026-11-16"
 DEFAULT_MAX_FIXTURES = 5
 
 

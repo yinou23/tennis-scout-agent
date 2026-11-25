@@ -239,20 +239,20 @@ def build_answer(plan, outputs, question=None):
             else:
                 lines.append(f"Head-to-head: {h2h['total']} meetings, {a} {h2h['wins_a']} wins, {b} {h2h['wins_b']} wins.")
         if zh:
-            lines.append("数据截至 2026-05-25，不是实时数据。状态、局数、退赛、交手不进概率，只做描述。")
+            lines.append("数据截至 2026-11-16，不是实时数据。状态、局数、退赛、交手不进概率，只做描述。")
         else:
-            lines.append("Data as of 2026-05-25, not live. Form, games, retirement, and head-to-head are descriptors only, not probability inputs.")
+            lines.append("Data as of 2026-11-16, not live. Form, games, retirement, and head-to-head are descriptors only, not probability inputs.")
         return "\n".join(lines)
     if plan["tool"] == "h2h":
         a = outputs["player_a"]["name"]
         b = outputs["player_b"]["name"]
         if zh:
-            return f"{a} 对 {b} 交手：共 {outputs['total']} 场，{a} {outputs['wins_a']} 胜，{b} {outputs['wins_b']} 胜。数据截至 2026-05-25。"
-        return f"{a} vs {b} head-to-head: {outputs['total']} meetings, {a} {outputs['wins_a']} wins, {b} {outputs['wins_b']} wins. Data as of 2026-05-25."
+            return f"{a} 对 {b} 交手：共 {outputs['total']} 场，{a} {outputs['wins_a']} 胜，{b} {outputs['wins_b']} 胜。数据截至 2026-11-16。"
+        return f"{a} vs {b} head-to-head: {outputs['total']} meetings, {a} {outputs['wins_a']} wins, {b} {outputs['wins_b']} wins. Data as of 2026-11-16."
     if plan["tool"] == "elo":
         if zh:
-            return f"{outputs['name']} 综合 Elo {outputs['overall_elo']}，{outputs['matches_played']} 场，最近比赛 {outputs['last_match_date']}。数据截至 2026-05-25。"
-        return f"{outputs['name']} overall Elo {outputs['overall_elo']}, {outputs['matches_played']} matches, last match {outputs['last_match_date']}. Data as of 2026-05-25."
+            return f"{outputs['name']} 综合 Elo {outputs['overall_elo']}，{outputs['matches_played']} 场，最近比赛 {outputs['last_match_date']}。数据截至 2026-11-16。"
+        return f"{outputs['name']} overall Elo {outputs['overall_elo']}, {outputs['matches_played']} matches, last match {outputs['last_match_date']}. Data as of 2026-11-16."
     if plan["tool"] == "form":
         win = outputs["win_form"]
         if win.get("recent2m_pct") is not None:
@@ -262,14 +262,14 @@ def build_answer(plan, outputs, question=None):
             win2m_zh = "最近 2 个月没有比赛"
             win2m_en = "no matches in the last 2 months"
         if zh:
-            return f"{outputs['name']} 近期状态：{win2m_zh}，最近 52 周胜率 {win['last52_pct']}（{win['last52_wins']} 胜 {win['last52_n']} 场）。数据截至 2026-05-25。"
-        return f"{outputs['name']} recent form: {win2m_en}, last 52 weeks win rate {win['last52_pct']} ({win['last52_wins']} wins in {win['last52_n']} matches). Data as of 2026-05-25."
+            return f"{outputs['name']} 近期状态：{win2m_zh}，最近 52 周胜率 {win['last52_pct']}（{win['last52_wins']} 胜 {win['last52_n']} 场）。数据截至 2026-11-16。"
+        return f"{outputs['name']} recent form: {win2m_en}, last 52 weeks win rate {win['last52_pct']} ({win['last52_wins']} wins in {win['last52_n']} matches). Data as of 2026-11-16."
     if plan["tool"] == "surface":
         if zh:
             parts = ", ".join(f"{s} {v['wins']} 胜 {v['losses']} 负" for s, v in outputs["by_surface"].items())
-            return f"{outputs['name']} 场地战绩：{parts}，总计 {outputs['total_wins']} 胜 {outputs['total_losses']} 负。数据截至 2026-05-25。"
+            return f"{outputs['name']} 场地战绩：{parts}，总计 {outputs['total_wins']} 胜 {outputs['total_losses']} 负。数据截至 2026-11-16。"
         parts = ", ".join(f"{s} {v['wins']}W-{v['losses']}L" for s, v in outputs["by_surface"].items())
-        return f"{outputs['name']} surface record: {parts}, total {outputs['total_wins']}W-{outputs['total_losses']}L. Data as of 2026-05-25."
+        return f"{outputs['name']} surface record: {parts}, total {outputs['total_wins']}W-{outputs['total_losses']}L. Data as of 2026-11-16."
     return "无法回答这个问题。" if zh else "Cannot answer this question."
 
 

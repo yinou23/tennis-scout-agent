@@ -34,12 +34,12 @@ import weekly_sample
 
 def _fake_report():
     return {
-        "text": "Scouting report: Jannik Sinner vs Carlos Alcaraz (Hard)\nFinal probability (calibrated): Jannik Sinner 0.6378, Carlos Alcaraz 0.3622 [Surface blend: Hard, prior=100] [Calibration: a=0.8]",
+        "text": "Scouting report: Jannik Sinner vs Carlos Alcaraz (Hard)\nFinal probability (calibrated): Jannik Sinner 0.5847, Carlos Alcaraz 0.4153 [Surface blend: Hard, prior=100] [Calibration: a=0.8]",
         "favorite": "Jannik Sinner",
-        "prob_a_calibrated": 0.6378,
-        "prob_b_calibrated": 0.3622,
-        "prob_a_blended": 0.6698,
-        "prob_b_blended": 0.3302,
+        "prob_a_calibrated": 0.5847,
+        "prob_b_calibrated": 0.4153,
+        "prob_a_blended": 0.6053,
+        "prob_b_blended": 0.3947,
     }
 
 
@@ -52,7 +52,7 @@ def test_build_sample_markdown_includes_metadata_sources_trace_cost_coverage(mon
     markdown = weekly_sample.build_sample_markdown(_fake_report(), "Jannik Sinner", "Carlos Alcaraz", "Hard", 12.3)
     assert "Weekly sample scouting report" in markdown
     assert "Jannik Sinner vs Carlos Alcaraz" in markdown
-    assert "Data as of: 2026-05-25, not live" in markdown
+    assert "Data as of: 2026-11-16, not live" in markdown
     assert "LLM calls: 0" in markdown
     assert "LLM cost: $0.00" in markdown
     assert "12.3 ms" in markdown
@@ -87,10 +87,10 @@ def test_generate_sample_sinner_alcaraz_hard_on_real_db():
     with get_connection() as conn:
         markdown, report, latency_ms = weekly_sample.generate_sample(conn, "Jannik Sinner", "Carlos Alcaraz", "Hard")
     assert "Jannik Sinner vs Carlos Alcaraz" in markdown
-    assert "0.6378" in markdown
-    assert "0.6698" in markdown
+    assert "0.5847" in markdown
+    assert "0.6053" in markdown
     assert "Jannik Sinner" in markdown
-    assert "Data as of: 2026-05-25, not live" in markdown
+    assert "Data as of: 2026-11-16, not live" in markdown
     assert "LLM calls: 0" in markdown
     assert latency_ms > 0
     assert report["favorite"] == "Jannik Sinner"
